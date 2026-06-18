@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BengkelBot Web</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <div>
+          <h1>🔧 BengkelBot</h1>
+          <p id="status">Menghubungkan...</p>
+        </div>
+        <button id="clearBtn" type="button">Clear</button>
+      </header>
+
+      <section id="messages" class="messages" aria-live="polite"></section>
+
+      <form id="chatForm" class="composer">
+        <input
+          id="messageInput"
+          type="text"
+          autocomplete="off"
+          placeholder="Tulis pesan pelanggan..."
+          autofocus
+        />
+        <button id="sendBtn" type="submit">Kirim</button>
+      </form>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

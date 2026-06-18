@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — BengkelBot Admin</title>
+  <link rel="stylesheet" href="/admin/style.css" />
+</head>
+<body class="login-page">
+  <form id="loginForm" class="login-card">
+    <div class="login-logo">🔧</div>
+    <h1>BengkelBot Admin</h1>
+    <p class="login-sub">Masuk untuk mengelola chatbot</p>
+
+    <div id="error" class="login-error" hidden></div>
+
+    <label for="username">Username</label>
+    <input id="username" type="text" autocomplete="username" autofocus required />
+
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required />
+
+    <button type="submit">Masuk</button>
+  </form>
+
+  <script>
+    document.querySelector('#loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const errEl = document.querySelector('#error')
+      errEl.hidden = true
+
+      const res = await fetch('/admin/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.querySelector('#username').value,
+          password: document.querySelector('#password').value,
+        }),
+      })
+
+      if (res.ok) {
+        window.location.href = '/admin'
+      } else {
+        const data = await res.json()
+        errEl.textContent = data.error || 'Login gagal'
+        errEl.hidden = false
+      }
+    })
+  </script>
+</body>
+</html>

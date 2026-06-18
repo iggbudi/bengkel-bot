@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — BengkelBot Admin</title>
+  <link rel="stylesheet" href="/admin/style.css" />
+</head>
+<body class="admin-page">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-brand">🔧 BengkelBot</div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section">📚 Knowledge Base</div>
+      <a href="#kb/faq" class="nav-item active" data-page="kb/faq">
+        <span class="nav-icon">❓</span> FAQ
+      </a>
+      <a href="#kb/services" class="nav-item" data-page="kb/services">
+        <span class="nav-icon">💰</span> Layanan & Harga
+      </a>
+      <a href="#kb/slang" class="nav-item" data-page="kb/slang">
+        <span class="nav-icon">🗣️</span> Slang Jawa
+      </a>
+      <a href="#kb/diagnostics" class="nav-item" data-page="kb/diagnostics">
+        <span class="nav-icon">🔍</span> Panduan Diagnosa
+      </a>
+
+      <div class="nav-section">📋 Operasional</div>
+      <a href="#conversations" class="nav-item" data-page="conversations">
+        <span class="nav-icon">💬</span> Sesi Chat
+      </a>
+      <a href="#bookings" class="nav-item" data-page="bookings">
+        <span class="nav-icon">📅</span> Booking
+      </a>
+      <a href="#settings" class="nav-item" data-page="settings">
+        <span class="nav-icon">⚙️</span> Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="/admin/logout" class="nav-item logout">🚪 Logout</a>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main id="content" class="content">
+    <div id="content-header" class="content-header">
+      <h2 id="page-title">Loading...</h2>
+      <div id="page-actions"></div>
+    </div>
+    <div id="page-body" class="content-body">Loading...</div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="/admin/app.js"></script>
+</body>
+</html>
