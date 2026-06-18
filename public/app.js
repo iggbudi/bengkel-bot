@@ -7,11 +7,11 @@ const statusEl = document.querySelector('#status')
 const customerNameInput = document.querySelector('#customerNameInput')
 
 const chatIdKey = 'bengkelbot.chatId'
-const messagesKey = 'bengkelbot.messages'
 const customerNameKey = 'bengkelbot.customerName'
 let chatId = getOrCreateChatId()
-let messages = loadMessages()
+let messages = []
 let busy = false
+let syncing = true
 let currentBotBubble = null
 
 const QUICK_PROMPTS = [
@@ -22,9 +22,7 @@ const QUICK_PROMPTS = [
 ]
 
 initCustomerName()
-renderMessages()
-checkHealth()
-handleInitialQuery()
+boot()
 
 customerNameInput?.addEventListener('change', saveCustomerName)
 customerNameInput?.addEventListener('blur', saveCustomerName)
@@ -32,7 +30,7 @@ customerNameInput?.addEventListener('blur', saveCustomerName)
 formEl.addEventListener('submit', async (event) => {
   event.preventDefault()
   const message = inputEl.value.trim()
-  if (!message || busy) return
+  if (!message || busy || syncing) return
 
   inputEl.value = ''
   addMessage('user', message)
@@ -40,16 +38,47 @@ formEl.addEventListener('submit', async (event) => {
 })
 
 newSessionBtn.addEventListener('click', () => {
-  if (busy) return
+  if (busy || syncing) return
   if (!confirm('Mulai percakapan baru? Bot tidak akan mengingat pesan sebelumnya.')) return
   startNewSession()
 })
+
+async function boot() {
+  syncing = true
+  setBusy(false)
+  renderMessages()
+  await Promise.all([syncHistory(), checkHealth()])
+  syncing = false
+  setBusy(busy)
+  renderMessages()
+  await handleInitialQuery()
+}
+
+async function syncHistory() {
+  try {
+    const res = await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}`)
+    if (!res.ok) return
+    const data = await res.json()
+    messages = (data.messages || []).map(normalizeServerMessage)
+  } catch {
+    messages = []
+  }
+}
+
+function normalizeServerMessage(entry) {
+  const role =
+    entry.role === 'assistant' ? 'bot' : entry.role === 'user' ? 'user' : entry.role
+  return {
+    role,
+    text: entry.content ?? entry.text ?? '',
+    at: entry.at ?? 0,
+  }
+}
 
 function startNewSession() {
   chatId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
   localStorage.setItem(chatIdKey, chatId)
   messages = []
-  saveMessages()
   renderMessages()
   customerNameInput?.focus()
 }
@@ -64,7 +93,7 @@ function saveCustomerName() {
   const name = customerNameInput.value.trim()
   if (name) localStorage.setItem(customerNameKey, name)
   else localStorage.removeItem(customerNameKey)
-  renderMessages()
+  if (!syncing) renderMessages()
 }
 
 function getCustomerName() {
@@ -83,21 +112,8 @@ function getOrCreateChatId() {
   return id
 }
 
-function loadMessages() {
-  try {
-    return JSON.parse(localStorage.getItem(messagesKey) || '[]')
-  } catch {
-    return []
-  }
-}
-
-function saveMessages() {
-  localStorage.setItem(messagesKey, JSON.stringify(messages.slice(-100)))
-}
-
 function addMessage(role, text) {
   messages.push({ role, text, at: Date.now() })
-  saveMessages()
   renderMessages()
 }
 
@@ -111,6 +127,14 @@ function renderMarkdown(text) {
 
 function renderMessages() {
   messagesEl.innerHTML = ''
+
+  if (syncing) {
+    const loading = document.createElement('div')
+    loading.className = 'empty'
+    loading.textContent = 'Memuat riwayat chat...'
+    messagesEl.appendChild(loading)
+    return
+  }
 
   if (messages.length === 0 && !currentBotBubble) {
     const empty = document.createElement('div')
@@ -133,7 +157,7 @@ function renderMessages() {
       btn.className = 'empty-prompt'
       btn.textContent = text
       btn.addEventListener('click', () => {
-        if (busy) return
+        if (busy || syncing) return
         addMessage('user', text)
         sendMessage(text)
       })
@@ -164,6 +188,9 @@ function scrollToBottom() {
 }
 
 function createBotBubble() {
+  const empty = messagesEl.querySelector('.empty')
+  if (empty) empty.remove()
+
   const div = document.createElement('div')
   div.className = 'message bot'
   div.textContent = ''
@@ -192,14 +219,14 @@ function applyBranding(data) {
   document.title = `Chat — ${name}`
 }
 
-function handleInitialQuery() {
+async function handleInitialQuery() {
   const params = new URLSearchParams(window.location.search)
   const query = params.get('q')?.trim()
-  if (!query || busy) return
+  if (!query || busy || syncing) return
 
   window.history.replaceState({}, '', '/chat')
   addMessage('user', query)
-  sendMessage(query)
+  await sendMessage(query)
 }
 
 async function checkHealth() {
@@ -233,9 +260,7 @@ async function sendMessage(message) {
     let finalText = ''
 
     await new Promise((resolve, reject) => {
-      eventSource.addEventListener('start', () => {
-        // stream started
-      })
+      eventSource.addEventListener('start', () => {})
 
       eventSource.addEventListener('delta', (e) => {
         try {
@@ -280,15 +305,16 @@ async function sendMessage(message) {
 
     if (finalText) {
       addMessage('bot', finalText)
-      // remove the live bubble since addMessage re-renders everything
-      if (currentBotBubble && currentBotBubble.parentNode) {
-        currentBotBubble.remove()
-      }
+      if (currentBotBubble?.parentNode) currentBotBubble.remove()
     }
   } catch (err) {
     setErrorBubble(err.message || 'Maaf, ada gangguan teknis.')
-    messages.push({ role: 'error', text: err.message || 'Maaf, ada gangguan teknis.', at: Date.now() })
-    saveMessages()
+    messages.push({
+      role: 'error',
+      text: err.message || 'Maaf, ada gangguan teknis.',
+      at: Date.now(),
+    })
+    renderMessages()
   } finally {
     currentBotBubble = null
     setBusy(false)
@@ -298,8 +324,9 @@ async function sendMessage(message) {
 
 function setBusy(value) {
   busy = value
-  inputEl.disabled = value
-  sendBtn.disabled = value
-  if (customerNameInput) customerNameInput.disabled = value
+  inputEl.disabled = value || syncing
+  sendBtn.disabled = value || syncing
+  if (customerNameInput) customerNameInput.disabled = value || syncing
+  if (newSessionBtn) newSessionBtn.disabled = value || syncing
   if (!value) renderMessages()
 }

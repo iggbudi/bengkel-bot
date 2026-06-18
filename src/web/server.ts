@@ -25,7 +25,7 @@ import { existsSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
-import { getDb, type DbBooking } from '../db/schema.js'
+import { ConversationRepo, getDb, type DbBooking } from '../db/schema.js'
 import { BengkelBot, createBotConfigFromEnv } from '../bot/agent.js'
 
 loadEnv({ override: true })
@@ -124,6 +124,20 @@ async function main(): Promise<void> {
         const content = await readFile(join(PUBLIC_DIR, 'chat.html'))
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
         res.end(content)
+        return
+      }
+
+      if (req.method === 'GET' && url.pathname === '/api/chat/history') {
+        const chatId = url.searchParams.get('chatId')?.trim()
+        if (!chatId) {
+          json(res, 400, { error: 'chatId wajib diisi' })
+          return
+        }
+        const raw = ConversationRepo.getMessages(`web:${chatId}`, 'web') as Array<{
+          role: string
+          content: string
+        }>
+        json(res, 200, { chatId, messages: raw })
         return
       }
 
