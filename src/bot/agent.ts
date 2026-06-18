@@ -111,7 +111,12 @@ export class BengkelBot {
   }
 
   async processMessage(chatId: string, customerName: string, message: string, channel?: string): Promise<string> {
-    const model = resolveModel(this.modelRegistry, this.llmConfig, this.config.openaiBaseUrl)
+    const model = resolveModel(
+      this.modelRegistry,
+      this.llmConfig,
+      this.config.openaiBaseUrl,
+      this.config.sumopodBaseUrl
+    )
     if (!model) {
       throw new Error(`Model tidak ditemukan: ${describeLlm(this.llmConfig)}`)
     }
@@ -240,7 +245,12 @@ export class BengkelBot {
     message: string,
     onChunk: (delta: string, accumulated: string) => void,
   ): Promise<string> {
-    const model = resolveModel(this.modelRegistry, this.llmConfig, this.config.openaiBaseUrl)
+    const model = resolveModel(
+      this.modelRegistry,
+      this.llmConfig,
+      this.config.openaiBaseUrl,
+      this.config.sumopodBaseUrl
+    )
     if (!model) throw new Error(`Model tidak ditemukan: ${describeLlm(this.llmConfig)}`)
 
     const auth = await this.modelRegistry.getApiKeyAndHeaders(model)

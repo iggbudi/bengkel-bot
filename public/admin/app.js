@@ -5,6 +5,8 @@
  */
 
 const sidebar = document.querySelector('#sidebar')
+const sidebarOverlay = document.querySelector('#sidebar-overlay')
+const menuBtn = document.querySelector('#menuBtn')
 const titleEl = document.querySelector('#page-title')
 const actionsEl = document.querySelector('#page-actions')
 const bodyEl = document.querySelector('#page-body')
@@ -12,6 +14,39 @@ const navItems = document.querySelectorAll('.nav-item[data-page]')
 
 let currentPage = ''
 let dirty = false
+
+function isMobile() {
+  return window.matchMedia('(max-width: 768px)').matches
+}
+
+function openSidebar() {
+  sidebar?.classList.add('open')
+  if (sidebarOverlay) sidebarOverlay.hidden = false
+  document.body.classList.add('sidebar-open')
+}
+
+function closeSidebar() {
+  sidebar?.classList.remove('open')
+  if (sidebarOverlay) sidebarOverlay.hidden = true
+  document.body.classList.remove('sidebar-open')
+}
+
+menuBtn?.addEventListener('click', () => {
+  if (sidebar?.classList.contains('open')) closeSidebar()
+  else openSidebar()
+})
+
+sidebarOverlay?.addEventListener('click', closeSidebar)
+
+navItems.forEach((el) => {
+  el.addEventListener('click', () => {
+    if (isMobile()) closeSidebar()
+  })
+})
+
+window.addEventListener('resize', () => {
+  if (!isMobile()) closeSidebar()
+})
 
 // ── Routing ──────────────────────────────────────────────
 
@@ -55,6 +90,7 @@ function toast(message, type = 'success') {
 
 async function api(path, options = {}) {
   const res = await fetch(`/admin/api${path}`, {
+    credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...options.headers },
     ...options,
   })
@@ -70,6 +106,7 @@ async function api(path, options = {}) {
 async function loadPage(page) {
   currentPage = page
   dirty = false
+  document.body.classList.remove('settings-page')
   setActiveNav(page)
 
   const [section, sub] = page.split('/')
@@ -118,37 +155,60 @@ async function loadKbPage(name) {
   `
 
   bodyEl.innerHTML = `
-    <div class="kb-editor">
+    <div class="kb-tabs mobile-only" id="kbTabs">
+      <button type="button" class="kb-tab active" data-tab="edit">✏️ Edit</button>
+      <button type="button" class="kb-tab" data-tab="preview">👁️ Preview</button>
+    </div>
+    <div class="kb-editor show-edit" id="kbEditor">
       <div class="editor-pane card">
         <div class="card-header">
           <h3>Markdown Editor</h3>
         </div>
-        <textarea id="editor" spellcheck="false" placeholder="Loading..."></textarea>
+        <textarea id="editor" spellcheck="false" placeholder="Memuat konten..." readonly></textarea>
       </div>
       <div class="preview-pane card">
         <div class="card-header">
           <h3>Preview</h3>
         </div>
-        <div class="preview-content" id="preview">Loading...</div>
+        <div class="preview-content" id="preview"><p class="kb-loading">Memuat preview...</p></div>
       </div>
     </div>
   `
 
+  const kbEditor = document.querySelector('#kbEditor')
+  const kbTabs = document.querySelector('#kbTabs')
   const editor = document.querySelector('#editor')
   const preview = document.querySelector('#preview')
   const saveBtn = document.querySelector('#saveBtn')
   const statusDot = document.querySelector('#statusDot')
   const statusText = document.querySelector('#statusText')
 
-  const data = await api(`/kb/${name}`)
-  if (!data.ok) {
-    editor.value = ''
-    preview.innerHTML = `<p style="color:var(--danger)">Gagal memuat: ${data.error}</p>`
-    return
+  function updatePreview() {
+    if (typeof marked === 'undefined') {
+      preview.innerHTML = '<p style="color:var(--danger)">Markdown renderer belum dimuat. Muat ulang halaman.</p>'
+      return
+    }
+    const content = editor.value || ''
+    preview.innerHTML = content.trim()
+      ? marked.parse(content, { breaks: true, gfm: true })
+      : '<p class="kb-loading">Belum ada konten.</p>'
   }
 
-  editor.value = data.content || ''
-  preview.innerHTML = marked.parse(data.content || '')
+  function switchKbTab(tabName) {
+    if (!kbEditor || !kbTabs) return
+    kbTabs.querySelectorAll('.kb-tab').forEach((t) => {
+      t.classList.toggle('active', t.dataset.tab === tabName)
+    })
+    kbEditor.classList.remove('show-edit', 'show-preview')
+    kbEditor.classList.add(tabName === 'preview' ? 'show-preview' : 'show-edit')
+    if (tabName === 'preview') updatePreview()
+  }
+
+  kbTabs?.addEventListener('click', (e) => {
+    const tab = e.target.closest('.kb-tab')
+    if (!tab) return
+    switchKbTab(tab.dataset.tab)
+  })
 
   function setClean() {
     dirty = false
@@ -164,8 +224,25 @@ async function loadKbPage(name) {
     statusText.textContent = 'Belum disimpan'
   }
 
+  const data = await api(`/kb/${name}`)
+  if (!data.ok) {
+    editor.value = ''
+    editor.readOnly = false
+    editor.placeholder = 'Gagal memuat konten'
+    preview.innerHTML = `<p style="color:var(--danger)">Gagal memuat: ${data.error}</p>`
+    statusDot.className = 'status-dot error'
+    statusText.textContent = 'Gagal memuat'
+    return
+  }
+
+  editor.value = data.content || ''
+  editor.readOnly = false
+  editor.placeholder = 'Tulis markdown di sini...'
+  updatePreview()
+  setClean()
+
   editor.addEventListener('input', () => {
-    preview.innerHTML = marked.parse(editor.value)
+    if (kbEditor?.classList.contains('show-preview')) updatePreview()
     setDirty()
   })
 
@@ -221,7 +298,7 @@ async function loadConversationsPage() {
 
   bodyEl.innerHTML = `
     <div class="filter-bar" id="convFilters"></div>
-    <div class="card">
+    <div class="card desktop-only">
       <table class="data-table" id="convTable">
         <thead>
           <tr>
@@ -237,6 +314,7 @@ async function loadConversationsPage() {
         <tbody id="convBody"></tbody>
       </table>
     </div>
+    <div class="mobile-card-list mobile-only" id="convCards"></div>
   `
 
   const filtersEl = document.querySelector('#convFilters')
@@ -263,34 +341,70 @@ async function loadConversationsPage() {
   statsEl.textContent = `Total: ${statsData.total} | 24h: ${statsData.recentDay} | 1h: ${statsData.recentHour}`
 
   const tbody = document.querySelector('#convBody')
+  const cardsEl = document.querySelector('#convCards')
+  const emptyMsg = '<p style="text-align:center;color:var(--muted);padding:32px">Belum ada percakapan</p>'
 
   if (!convData.conversations?.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Belum ada percakapan</td></tr>`
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Belum ada percakapan</td></tr>`
+    if (cardsEl) cardsEl.innerHTML = emptyMsg
     return
   }
 
-  tbody.innerHTML = convData.conversations
-    .map((c) => {
-      const channelIcon = { whatsapp: '📱', web: '🌐', telegram: '✈️' }[c.channel] || '💬'
-      const chatId = c.chat_id.replace(/^(web|whatsapp|telegram):/, '')
-      const preview = c.last_message_preview
-        ? escHtml(c.last_message_preview.length > 50 ? c.last_message_preview.slice(0, 50) + '...' : c.last_message_preview)
-        : '-'
-      const time = c.last_message_at ? new Date(c.last_message_at).toLocaleString('id-ID') : '-'
+  if (tbody) {
+    tbody.innerHTML = convData.conversations
+      .map((c) => {
+        const channelIcon = { whatsapp: '📱', web: '🌐', telegram: '✈️' }[c.channel] || '💬'
+        const chatId = c.chat_id.replace(/^(web|whatsapp|telegram):/, '')
+        const preview = c.last_message_preview
+          ? escHtml(c.last_message_preview.length > 50 ? c.last_message_preview.slice(0, 50) + '...' : c.last_message_preview)
+          : '-'
+        const time = c.last_message_at ? new Date(c.last_message_at).toLocaleString('id-ID') : '-'
 
-      return `
-        <tr>
-          <td>${channelIcon} ${c.channel}</td>
-          <td><code style="font-size:12px">${escHtml(chatId)}</code></td>
-          <td>${escHtml(c.customer_name || '-')}</td>
-          <td>${c.message_count}</td>
-          <td style="color:var(--muted);font-size:13px">${preview}</td>
-          <td style="font-size:13px">${time}</td>
-          <td><button class="btn btn-small btn-secondary view-conv-btn" data-id="${c.id}">👁️ Lihat</button></td>
-        </tr>
-      `
-    })
-    .join('')
+        return `
+          <tr>
+            <td>${channelIcon} ${c.channel}</td>
+            <td><code style="font-size:12px">${escHtml(chatId)}</code></td>
+            <td>${escHtml(c.customer_name || '-')}</td>
+            <td>${c.message_count}</td>
+            <td style="color:var(--muted);font-size:13px">${preview}</td>
+            <td style="font-size:13px">${time}</td>
+            <td><button class="btn btn-small btn-secondary view-conv-btn" data-id="${c.id}">👁️ Lihat</button></td>
+          </tr>
+        `
+      })
+      .join('')
+  }
+
+  if (cardsEl) {
+    cardsEl.innerHTML = convData.conversations
+      .map((c) => {
+        const channelIcon = { whatsapp: '📱', web: '🌐', telegram: '✈️' }[c.channel] || '💬'
+        const chatId = c.chat_id.replace(/^(web|whatsapp|telegram):/, '')
+        const preview = c.last_message_preview
+          ? escHtml(c.last_message_preview.length > 80 ? c.last_message_preview.slice(0, 80) + '...' : c.last_message_preview)
+          : '-'
+        const time = c.last_message_at ? new Date(c.last_message_at).toLocaleString('id-ID') : '-'
+
+        return `
+          <div class="mobile-card">
+            <div class="mobile-card-header">
+              <div>
+                <div class="mobile-card-title">${channelIcon} ${escHtml(c.customer_name || chatId)}</div>
+                <div class="mobile-card-meta"><code>${escHtml(chatId)}</code></div>
+              </div>
+              <span class="badge badge-approved">${c.message_count} pesan</span>
+            </div>
+            <div class="mobile-card-meta">${preview}</div>
+            <div class="mobile-card-row">
+              <span class="mobile-card-label">Terakhir</span>
+              <span style="font-size:13px">${time}</span>
+            </div>
+            <button class="btn btn-secondary view-conv-btn" data-id="${c.id}" style="width:100%">👁️ Lihat Percakapan</button>
+          </div>
+        `
+      })
+      .join('')
+  }
 
   document.querySelectorAll('.view-conv-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -304,9 +418,11 @@ async function loadConversationViewPage() {
   if (!id) { navigate('conversations'); return }
 
   titleEl.textContent = '💬 Detail Chat'
-  actionsEl.innerHTML = `<button class="btn btn-secondary" onclick="navigate('conversations')">← Kembali</button>`
+  actionsEl.innerHTML = `<button class="btn btn-secondary" id="backToConvBtn" type="button">← Kembali</button>`
 
   bodyEl.innerHTML = '<p style="color:var(--muted)">Loading...</p>'
+
+  document.querySelector('#backToConvBtn')?.addEventListener('click', () => navigate('conversations'))
 
   const data = await api(`/conversations/${id}`)
   if (!data.conversation) {
@@ -370,7 +486,7 @@ async function loadBookingsPage() {
 
   bodyEl.innerHTML = `
     <div class="filter-bar" id="filters"></div>
-    <div class="card">
+    <div class="card desktop-only">
       <table class="data-table" id="bookingTable">
         <thead>
           <tr>
@@ -386,6 +502,7 @@ async function loadBookingsPage() {
         <tbody id="bookingBody"></tbody>
       </table>
     </div>
+    <div class="mobile-card-list mobile-only" id="bookingCards"></div>
   `
 
   const filtersEl = document.querySelector('#filters')
@@ -413,34 +530,70 @@ async function loadBookingsPage() {
   const params = bookingFilter ? `?status=${bookingFilter}` : ''
   const data = await api(`/bookings${params}`)
   const tbody = document.querySelector('#bookingBody')
+  const cardsEl = document.querySelector('#bookingCards')
 
   if (!data.bookings?.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Tidak ada booking</td></tr>`
+    const empty = `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">Tidak ada booking</td></tr>`
+    if (tbody) tbody.innerHTML = empty
+    if (cardsEl) cardsEl.innerHTML = '<p style="text-align:center;color:var(--muted);padding:32px">Tidak ada booking</p>'
     return
   }
 
-  tbody.innerHTML = data.bookings
-    .map(
-      (b) => `
-    <tr>
-      <td><strong>${escHtml(b.plate_number || '-')}</strong></td>
-      <td>${escHtml(b.car_model || '-')}</td>
-      <td>${escHtml(b.service_type)}</td>
-      <td>${escHtml(b.customer_name || '-')}</td>
-      <td><span class="badge badge-${b.status}">${b.status}</span></td>
-      <td>${b.booked_at || '-'}</td>
-      <td>
-        <select class="status-select" data-id="${b.id}" style="background:var(--input-bg);color:var(--text);border:1px solid var(--card-border);border-radius:6px;padding:4px 8px;font-size:13px">
-          ${['pending', 'approved', 'in_progress', 'done', 'cancelled']
-            .map((s) => `<option value="${s}" ${s === b.status ? 'selected' : ''}>${s}</option>`)
-            .join('')}
-        </select>
-        <button class="btn btn-small btn-primary update-btn" data-id="${b.id}">✓</button>
-      </td>
-    </tr>
-  `,
-    )
-    .join('')
+  const statusOptions = (current) =>
+    ['pending', 'approved', 'in_progress', 'done', 'cancelled']
+      .map((s) => `<option value="${s}" ${s === current ? 'selected' : ''}>${s}</option>`)
+      .join('')
+
+  if (tbody) {
+    tbody.innerHTML = data.bookings
+      .map(
+        (b) => `
+      <tr>
+        <td><strong>${escHtml(b.plate_number || '-')}</strong></td>
+        <td>${escHtml(b.car_model || '-')}</td>
+        <td>${escHtml(b.service_type)}</td>
+        <td>${escHtml(b.customer_name || '-')}</td>
+        <td><span class="badge badge-${b.status}">${b.status}</span></td>
+        <td>${b.booked_at || '-'}</td>
+        <td>
+          <select class="status-select" data-id="${b.id}" style="background:var(--input-bg);color:var(--text);border:1px solid var(--card-border);border-radius:6px;padding:4px 8px;font-size:13px">
+            ${statusOptions(b.status)}
+          </select>
+          <button class="btn btn-small btn-primary update-btn" data-id="${b.id}">✓</button>
+        </td>
+      </tr>
+    `,
+      )
+      .join('')
+  }
+
+  if (cardsEl) {
+    cardsEl.innerHTML = data.bookings
+      .map(
+        (b) => `
+      <div class="mobile-card">
+        <div class="mobile-card-header">
+          <div class="mobile-card-title">${escHtml(b.plate_number || '-')}</div>
+          <span class="badge badge-${b.status}">${b.status}</span>
+        </div>
+        <div class="mobile-card-meta">${escHtml(b.car_model || '-')} · ${escHtml(b.service_type)}</div>
+        <div class="mobile-card-row">
+          <span class="mobile-card-label">Pelanggan</span>
+          <span>${escHtml(b.customer_name || '-')}</span>
+        </div>
+        <div class="mobile-card-row">
+          <span class="mobile-card-label">Tanggal</span>
+          <span>${b.booked_at || '-'}</span>
+        </div>
+        <div class="mobile-card-actions">
+          <select class="status-select" data-id="${b.id}">${statusOptions(b.status)}</select>
+          <button class="btn btn-primary update-btn" data-id="${b.id}">✓</button>
+        </div>
+      </div>
+    `,
+      )
+      .join('')
+  }
 
   document.querySelectorAll('.update-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -466,6 +619,7 @@ async function loadBookingsPage() {
 // ── Settings ─────────────────────────────────────────────
 
 async function loadSettingsPage() {
+  document.body.classList.add('settings-page')
   titleEl.textContent = '⚙️ Settings'
   actionsEl.innerHTML = `<button class="btn btn-primary" id="saveSettingsBtn">💾 Simpan</button>`
 
@@ -480,13 +634,14 @@ async function loadSettingsPage() {
     { key: 'WORKSHOP_DAYS', label: 'Hari Buka' },
     { key: 'WORKSHOP_SPECIALIZATION', label: 'Spesialisasi' },
     { key: 'BOT_NAME', label: 'Nama Bot' },
+    { key: 'BOT_TAGLINE', label: 'Tagline (tampil di halaman chat)' },
     { key: 'LLM_PROVIDER', label: 'LLM Provider' },
     { key: 'LLM_MODEL', label: 'LLM Model' },
     { key: 'LOG_LEVEL', label: 'Log Level' },
   ]
 
   bodyEl.innerHTML = `
-    <div class="card" style="max-width:640px">
+    <div class="card settings-card" style="max-width:640px">
       <div class="card-header"><h3>Konfigurasi Bengkel</h3></div>
       ${fields
         .map(
@@ -499,9 +654,12 @@ async function loadSettingsPage() {
         )
         .join('')}
     </div>
+    <div class="settings-save-bar mobile-only">
+      <button class="btn btn-primary" id="saveSettingsBtnMobile" type="button">💾 Simpan Settings</button>
+    </div>
   `
 
-  document.querySelector('#saveSettingsBtn').addEventListener('click', async () => {
+  async function saveSettings() {
     const updates = {}
     fields.forEach((f) => {
       const input = document.querySelector(`#setting-${f.key}`)
@@ -518,7 +676,10 @@ async function loadSettingsPage() {
     } else {
       toast(result.error || 'Gagal menyimpan', 'error')
     }
-  })
+  }
+
+  document.querySelector('#saveSettingsBtn')?.addEventListener('click', saveSettings)
+  document.querySelector('#saveSettingsBtnMobile')?.addEventListener('click', saveSettings)
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -540,6 +701,23 @@ function escAttr(str) {
   return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 }
 
+// ── Branding ─────────────────────────────────────────────
+
+async function applyBranding() {
+  try {
+    const res = await fetch('/api/health')
+    const data = await res.json()
+    const name = data.workshop?.trim() || data.bot?.trim() || 'BengkelBot'
+    const brand = document.querySelector('#sidebar-brand')
+    if (brand) brand.textContent = `🔧 ${name}`
+    document.title = `Dashboard — ${name} Admin`
+  } catch {
+    const brand = document.querySelector('#sidebar-brand')
+    if (brand) brand.textContent = '🔧 BengkelBot'
+  }
+}
+
 // ── Init ─────────────────────────────────────────────────
 
+applyBranding()
 loadPage(getHash())

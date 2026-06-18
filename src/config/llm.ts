@@ -6,6 +6,7 @@
 import type { Api, Model } from '@earendil-works/pi-ai'
 import type { ModelRegistry } from '@earendil-works/pi-coding-agent'
 import { OPENAI_GPT_5_4_MINI, OPENAI_GPT_5_4_MINI_ID } from '../providers/openai.js'
+import { createSumoPodModel } from '../providers/sumopod.js'
 
 export type LlmProvider = 'openai' | 'sumopod'
 
@@ -37,7 +38,7 @@ export function resolveLlmEnv(): LlmEnvConfig {
     openaiApiKey: process.env.OPENAI_API_KEY,
     openaiBaseUrl: process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
     sumopodApiKey: process.env.SUMOPOD_API_KEY,
-    sumopodBaseUrl: process.env.SUMOPOD_BASE_URL ?? 'https://open.sumopod.com/v1',
+    sumopodBaseUrl: process.env.SUMOPOD_BASE_URL ?? 'https://ai.sumopod.com/v1',
   }
 }
 
@@ -54,7 +55,8 @@ export function toLlmConfig(env: LlmEnvConfig): LlmConfig {
 export function resolveModel(
   registry: ModelRegistry,
   config: LlmConfig,
-  openaiBaseUrl?: string
+  openaiBaseUrl?: string,
+  sumopodBaseUrl?: string
 ): Model<Api> | undefined {
   if (config.provider === 'openai') {
     if (config.modelId === OPENAI_GPT_5_4_MINI_ID) {
@@ -67,7 +69,14 @@ export function resolveModel(
     return registry.find('openai', config.modelId)
   }
 
-  return registry.find('sumopod', config.modelId)
+  // SumoPod is OpenAI-compatible; API expects bare model id (no sumopod/ prefix)
+  const builtIn = registry.find('sumopod', config.modelId)
+  if (builtIn) return builtIn
+
+  return createSumoPodModel(
+    config.modelId,
+    sumopodBaseUrl ?? 'https://ai.sumopod.com/v1'
+  )
 }
 
 export function describeLlm(config: LlmConfig): string {

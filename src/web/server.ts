@@ -109,8 +109,21 @@ async function main(): Promise<void> {
           configError: validateLlmConfig(),
           bot: config.botName,
           workshop: config.workshopName,
+          tagline: process.env.BOT_TAGLINE ?? 'Asisten pintar bengkel mobil Anda',
+          workshopAddress: config.workshopAddress,
+          workshopPhone: config.workshopPhone,
+          workshopHours: config.workshopHours,
+          workshopDays: config.workshopDays,
+          workshopSpec: config.workshopSpec,
           llm: bot.getLlmDescription(),
         })
+        return
+      }
+
+      if (req.method === 'GET' && url.pathname === '/chat') {
+        const content = await readFile(join(PUBLIC_DIR, 'chat.html'))
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
+        res.end(content)
         return
       }
 
@@ -201,7 +214,7 @@ async function main(): Promise<void> {
 
         if (username === creds.username && password === creds.password) {
           const session = createSession(username)
-          setSessionCookie(res, session)
+          setSessionCookie(res, session, req)
           json(res, 200, { ok: true })
         } else {
           json(res, 401, { error: 'Username atau password salah' })
@@ -211,7 +224,7 @@ async function main(): Promise<void> {
 
       if (req.method === 'GET' && url.pathname === '/admin/api/logout') {
         destroySession(req)
-        clearSessionCookie(res)
+        clearSessionCookie(res, req)
         res.writeHead(302, { Location: '/admin/login' })
         res.end()
         return
@@ -328,7 +341,7 @@ async function main(): Promise<void> {
 
       if (req.method === 'GET' && url.pathname === '/admin/logout') {
         destroySession(req)
-        clearSessionCookie(res)
+        clearSessionCookie(res, req)
         res.writeHead(302, { Location: '/admin/login' })
         res.end()
         return

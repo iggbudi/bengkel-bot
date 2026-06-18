@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Login — BengkelBot Admin</title>
+  <title>Login Admin</title>
   <link rel="stylesheet" href="/admin/style.css" />
 </head>
 <body class="login-page">
   <form id="loginForm" class="login-card">
     <div class="login-logo">🔧</div>
-    <h1>BengkelBot Admin</h1>
+    <h1 id="login-title">... Admin</h1>
     <p class="login-sub">Masuk untuk mengelola chatbot</p>
 
     <div id="error" class="login-error" hidden></div>
@@ -24,6 +24,18 @@
   </form>
 
   <script>
+    fetch('/api/health')
+      .then((r) => r.json())
+      .then((data) => {
+        const name = data.workshop?.trim() || data.bot?.trim() || 'BengkelBot'
+        document.querySelector('#login-title').textContent = `${name} Admin`
+        document.title = `Login — ${name} Admin`
+      })
+      .catch(() => {
+        document.querySelector('#login-title').textContent = 'BengkelBot Admin'
+        document.title = 'Login — BengkelBot Admin'
+      })
+
     document.querySelector('#loginForm').addEventListener('submit', async (e) => {
       e.preventDefault()
       const errEl = document.querySelector('#error')
@@ -31,6 +43,7 @@
 
       const res = await fetch('/admin/api/login', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: document.querySelector('#username').value,

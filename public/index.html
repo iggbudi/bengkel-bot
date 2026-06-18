@@ -3,34 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BengkelBot Web</title>
-    <link rel="stylesheet" href="/style.css" />
+    <title>CMaestro — Asisten Bengkel Mobil</title>
+    <meta name="description" content="Asisten pintar bengkel mobil — booking, estimasi biaya, dan konsultasi service." />
+    <link rel="stylesheet" href="/landing.css" />
   </head>
   <body>
-    <main class="app">
-      <header class="header">
-        <div>
-          <h1>🔧 BengkelBot</h1>
-          <p id="status">Menghubungkan...</p>
+    <div class="page">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-icon" aria-hidden="true">🔧</span>
+          <span id="brand-name">CMaestro</span>
         </div>
-        <button id="clearBtn" type="button">Clear</button>
+        <a href="/chat" class="btn btn-primary">Mulai Chat</a>
       </header>
 
-      <section id="messages" class="messages" aria-live="polite"></section>
+      <main>
+        <section class="hero">
+          <p class="hero-badge">Asisten AI · Respon instan</p>
+          <h1 id="hero-title">Asisten pintar bengkel mobil Anda</h1>
+          <p id="hero-tagline" class="hero-tagline">Booking, estimasi biaya & konsultasi — kapan saja.</p>
+          <div class="hero-actions">
+            <a href="/chat" class="btn btn-primary btn-lg">💬 Tanya Sekarang</a>
+            <a href="#info" class="btn btn-ghost btn-lg">📍 Info Bengkel</a>
+          </div>
+        </section>
 
-      <form id="chatForm" class="composer">
-        <input
-          id="messageInput"
-          type="text"
-          autocomplete="off"
-          placeholder="Tulis pesan pelanggan..."
-          autofocus
-        />
-        <button id="sendBtn" type="submit">Kirim</button>
-      </form>
-    </main>
+        <section class="features" aria-label="Layanan">
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true">📅</span>
+            <h2>Booking</h2>
+            <p>Atur jadwal service mobil tanpa telepon — cukup chat.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true">💰</span>
+            <h2>Estimasi Harga</h2>
+            <p>Dapat kisaran biaya service sebelum datang ke bengkel.</p>
+          </article>
+          <article class="feature-card">
+            <span class="feature-icon" aria-hidden="true">🔍</span>
+            <h2>Cek Status</h2>
+            <p>Pantau progres perbaikan dengan nomor plat kendaraan.</p>
+          </article>
+        </section>
 
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="/app.js"></script>
+        <section class="prompts" aria-label="Contoh pertanyaan">
+          <h2 class="section-title">Coba tanya langsung</h2>
+          <div class="prompt-list">
+            <a class="prompt-chip" href="/chat?q=Service%20completo%20berapa%20harganya%3F">Service completo berapa?</a>
+            <a class="prompt-chip" href="/chat?q=Mau%20booking%20besok%20jam%209%20pagi">Mau booking besok</a>
+            <a class="prompt-chip" href="/chat?q=Rem%20depan%20bunyi%20aneh%2C%20kenapa%20ya%3F">Rem bunyi aneh</a>
+            <a class="prompt-chip" href="/chat?q=Jam%20buka%20dan%20alamat%20bengkel%3F">Jam buka & alamat</a>
+          </div>
+        </section>
+
+        <section class="trust" aria-label="Keunggulan">
+          <div class="trust-item"><span>⚡</span> Respon instan</div>
+          <div class="trust-item"><span>📋</span> Estimasi transparan</div>
+          <div class="trust-item"><span>🚗</span> Spesialis mobil umum</div>
+        </section>
+      </main>
+
+      <footer id="info" class="footer">
+        <div class="footer-grid">
+          <div>
+            <h3 id="footer-name">CMaestro</h3>
+            <p id="footer-address" class="footer-muted">—</p>
+          </div>
+          <div>
+            <p class="footer-label">Jam operasional</p>
+            <p id="footer-hours" class="footer-value">—</p>
+          </div>
+          <div>
+            <p class="footer-label">Telepon</p>
+            <p id="footer-phone" class="footer-value">—</p>
+          </div>
+        </div>
+        <p class="footer-copy">Powered by BengkelBot · <a href="/chat">Mulai chat</a></p>
+      </footer>
+    </div>
+
+    <script src="/landing.js"></script>
   </body>
 </html>

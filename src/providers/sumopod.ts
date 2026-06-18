@@ -27,8 +27,35 @@ import type { Model } from '@earendil-works/pi-ai'
 // It is not actively instantiated in the current BengkelBot (runtime keys + ModelRegistry.find suffice).
 // We use loose typing here for compatibility across pi-ai versions.
 
-export const SUMOPOD_DEFAULT_BASE_URL = 'https://open.sumopod.com/v1'
+export const SUMOPOD_DEFAULT_BASE_URL = 'https://ai.sumopod.com/v1'
 export const SUMOPOD_DEFAULT_MODEL = 'minimax-2.7-highspeed'
+
+/** Strip optional provider prefix — SumoPod API expects bare model id e.g. deepseek-v4-pro */
+export function normalizeSumoPodModelId(modelId: string): string {
+  return modelId.replace(/^sumopod\//, '')
+}
+
+/**
+ * Build an OpenAI-compatible Model for SumoPod (not in pi-ai built-in registry).
+ */
+export function createSumoPodModel(
+  modelId: string,
+  baseUrl = SUMOPOD_DEFAULT_BASE_URL
+): Model<'openai-completions'> {
+  const id = normalizeSumoPodModelId(modelId)
+  return {
+    id,
+    name: id,
+    api: 'openai-completions',
+    provider: 'sumopod',
+    baseUrl: baseUrl.replace(/\/$/, ''),
+    reasoning: id.includes('deepseek'),
+    input: ['text'],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128_000,
+    maxTokens: 8192,
+  }
+}
 
 // ── Types matching pi-ai's type system ────────────────────────────────────
 

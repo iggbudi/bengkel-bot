@@ -7,8 +7,10 @@
 ## Daftar Isi
 
 1. [Ringkasan Proyek](#1-ringkasan-proyek)
+   - [Status Produksi (cmaestro.my.id)](#11-status-produksi-cmaestromyid)
 2. [Arsitektur Sistem](#2-arsitektur-sistem)
 3. [Struktur Direktori](#3-struktur-direktori)
+   - [Layout VPS Produksi](#31-layout-vps-produksi)
 4. [Alur Data & Request Lifecycle](#4-alur-data--request-lifecycle)
 5. [Modul-modul Penting](#5-modul-modul-penting)
 6. [Database Schema](#6-database-schema)
@@ -27,25 +29,71 @@
 
 ## 1. Ringkasan Proyek
 
-**BengkelBot** adalah chatbot AI untuk bengkel mobil di Semarang yang dibangun di atas **pi SDK** (agent runtime). Bot ini berkomunikasi dengan pelanggan melalui **WhatsApp** (via Baileys), **Web UI**, atau **TUI terminal**, dan menggunakan LLM (OpenAI GPT-5.4 Mini atau MiniMax 2.7B via SumoPod) untuk memahami dan merespons pesan pelanggan.
+**BengkelBot** adalah chatbot AI untuk bengkel mobil di Semarang yang dibangun di atas **pi SDK** (agent runtime). Bot ini berkomunikasi dengan pelanggan melalui **Web UI** (produksi), **TUI terminal** (testing lokal), atau **WhatsApp** (via Baileys, opsional), dan menggunakan LLM (OpenAI atau SumoPod) untuk memahami dan merespons pesan pelanggan.
 
 ### Fitur Utama
 
 - **Chat otomatis** — pelanggan bisa tanya harga, booking, cek status service
-- **Multi-channel** — WhatsApp, Web UI, TUI terminal
+- **Multi-channel** — Web UI (aktif di produksi), TUI terminal, WhatsApp (opsional, belum diaktifkan)
 - **Knowledge Base** — FAQ, daftar harga, slang Jawa/Semarang, panduan diagnosa awal
 - **Tool calling** — LLM bisa memanggil tool untuk booking, lookup, escalate
 - **Admin Dashboard** — edit KB, kelola booking, lihat sesi chat, ubah settings
 - **Streaming response** — balasan bot muncul secara real-time di Web UI
 
+### 1.1 Status Produksi (cmaestro.my.id)
+
+> **Penting untuk agent/AI:** deployment produksi saat ini **hanya Web mode**. WhatsApp **belum** diaktifkan dan **tidak perlu** disetup kecuali diminta eksplisit.
+
+| Aspek | Nilai saat ini |
+|-------|----------------|
+| Domain | `https://cmaestro.my.id` |
+| Mode aktif | Web server (`src/web/server.ts`) |
+| WhatsApp | Tidak aktif — jangan jalankan `npm run dev` / `src/index.ts` |
+| Reverse proxy | **Sudah aktif** — Apache → `http://127.0.0.1:3012` |
+| SSL | Let's Encrypt via Apache (`cmaestro.my.id-le-ssl.conf`) |
+| PM2 process | `cmaestro-bengkelbot` |
+| PM2 script | `dist/web/server.js` (bukan `dist/index.js`) |
+| `WEB_PORT` | `3012` |
+| `WEB_HOST` | `127.0.0.1` (hanya localhost; publik lewat Apache) |
+| LLM produksi | `sumopod/deepseek-v4-pro` |
+| Workshop | CMaestro |
+| Chat UI | `https://cmaestro.my.id/` |
+| Admin | `https://cmaestro.my.id/admin` |
+| Health check | `https://cmaestro.my.id/api/health` |
+
+**Alur request produksi:**
+
+```
+Browser → https://cmaestro.my.id
+       → Apache (port 443, SSL)
+       → ProxyPass / → http://127.0.0.1:3012/
+       → BengkelBot web server (PM2)
+```
+
+**Catatan:** file `/var/www/cmaestro.my.id/public/index.html` (landing placeholder "Website sedang aktif") **tidak dilayani** ke publik karena Apache mem-proxy semua request ke Node. Static files chat UI dilayani dari `repo/public/`.
+
 ---
 
 ## 2. Arsitektur Sistem
 
+### Produksi (cmaestro.my.id)
+
+```
+Browser (HTTPS)
+      │
+      ▼
+Apache :443  ──ProxyPass──▶  Node web server :3012  (PM2: cmaestro-bengkelbot)
+                                    │
+                                    ▼
+                              BengkelBot Agent → SQLite + LLM (SumoPod)
+```
+
+### Umum (semua channel)
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Pelanggan                                 │
-│              (WhatsApp / Web Browser / Terminal)                 │
+│         (Web Browser — produksi / TUI / WhatsApp — opsional)     │
 └────────────────────────┬────────────────────────────────────────┘
                          │
                          ▼
@@ -54,6 +102,7 @@
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │  │  WhatsApp     │  │  Web Server  │  │  TUI         │          │
 │  │  (Baileys)    │  │  (HTTP/SSE)  │  │  (readline)  │          │
+│  │  [opsional]   │  │  [produksi]  │  │  [dev/test]  │          │
 │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
 │         │                  │                  │                   │
 │         └──────────────────┼──────────────────┘                   │
@@ -116,8 +165,26 @@ BengkelBot menggunakan **pi SDK** (`@earendil-works/pi-coding-agent`) sebagai ag
 
 ## 3. Struktur Direktori
 
+### 3.1 Layout VPS Produksi
+
 ```
-bengkelbot/
+/var/www/cmaestro.my.id/
+├── public/                   # Landing placeholder (TIDAK dilayani — Apache proxy ke Node)
+│   └── index.html
+└── repo/                     # Aplikasi BengkelBot (working directory PM2)
+    ├── src/                  # TypeScript source
+    ├── dist/                 # Compiled JS — PM2 menjalankan dist/web/server.js
+    ├── public/               # Chat UI + admin dashboard (dilayani Node)
+    ├── data/                 # SQLite DB + pi SDK auth
+    ├── auth/wa-session/      # Sesi WhatsApp (kosong — belum dipakai)
+    ├── .env                  # Konfigurasi produksi
+    └── wiki.md               # Dokumen ini
+```
+
+### 3.2 Layout Repo (development)
+
+```
+repo/
 ├── src/
 │   ├── index.ts              # Entry point — mode WhatsApp
 │   ├── tui.ts                # Entry point — mode TUI/terminal
@@ -403,7 +470,9 @@ Edit langsung file markdown di `src/kb/`. Perubahan berlaku setelah restart bot 
 | Provider | Model | Base URL | API Type |
 |----------|-------|----------|----------|
 | `openai` | `gpt-5.4-mini` | `https://api.openai.com/v1` | OpenAI Responses API |
-| `sumopod` | `minimax-2.7-highspeed` | `https://open.sumopod.com/v1` | OpenAI-compatible |
+| `sumopod` | `minimax-2.7-highspeed`, `deepseek-v4-pro`, dll. | `https://ai.sumopod.com/v1` | OpenAI-compatible |
+
+> **Produksi saat ini:** `LLM_PROVIDER=sumopod`, `LLM_MODEL=deepseek-v4-pro`
 
 ### Konfigurasi
 
@@ -469,7 +538,9 @@ LLM uses result to compose final answer to customer
 
 ## 10. Channel Komunikasi
 
-### 10.1 WhatsApp (`src/channels/whatsapp.ts`)
+### 10.1 WhatsApp (`src/channels/whatsapp.ts`) — Opsional, belum aktif di produksi
+
+> **Status produksi:** channel WhatsApp **belum diaktifkan** di `cmaestro.my.id`. Kode tersedia untuk penggunaan di masa depan; jangan diasumsikan sudah berjalan.
 
 - Library: **Baileys v6** (`baileys`)
 - Auth: QR code scan pertama kali → session disimpan di `auth/wa-session/`
@@ -478,10 +549,11 @@ LLM uses result to compose final answer to customer
 - Group messages: diabaikan (future: mention detection)
 - Format JID: `6281234567890@s.whatsapp.net`
 
-### 10.2 Web UI (`src/web/server.ts`)
+### 10.2 Web UI (`src/web/server.ts`) — Channel aktif di produksi
 
 - HTTP server native (tanpa framework)
-- Port: `WEB_PORT` (default 3000), Host: `WEB_HOST` (default 127.0.0.1)
+- Port: `WEB_PORT` (default 3000; **produksi: 3012**), Host: `WEB_HOST` (default 127.0.0.1)
+- Publik via Apache reverse proxy: `https://cmaestro.my.id`
 - Endpoints:
   - `GET /api/health` — health check
   - `GET /api/chat?message=...&chatId=...` — SSE streaming chat
@@ -499,13 +571,15 @@ LLM uses result to compose final answer to customer
 
 ## 11. Admin Dashboard
 
-Akses: `http://localhost:3000/admin`
+Akses:
+- **Produksi:** `https://cmaestro.my.id/admin`
+- **Lokal:** `http://localhost:3000/admin` (atau port `WEB_PORT` yang dikonfigurasi)
 
 ### Login
 
 ```env
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=Unisbox1920
+ADMIN_PASSWORD=Unisbank1920
 ```
 
 ### Fitur
@@ -554,8 +628,9 @@ ADMIN_PASSWORD=Unisbox1920
   "ok": true,
   "configError": null,
   "bot": "BengkelBot",
-  "workshop": "Bengkel Demo Semarang",
-  "llm": "openai/gpt-5.4-mini"
+  "workshop": "CMaestro",
+  "tagline": "Asisten pintar bengkel mobil Anda — booking, estimasi biaya & konsultasi",
+  "llm": "sumopod/deepseek-v4-pro"
 }
 ```
 
@@ -600,7 +675,7 @@ Status valid: `pending`, `approved`, `in_progress`, `done`, `cancelled`
 | `OPENAI_API_KEY` | — | API key OpenAI (required jika provider=openai) |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL OpenAI |
 | `SUMOPOD_API_KEY` | — | API key SumoPod (required jika provider=sumopod) |
-| `SUMOPOD_BASE_URL` | `https://open.sumopod.com/v1` | Base URL SumoPod |
+| `SUMOPOD_BASE_URL` | `https://ai.sumopod.com/v1` | Base URL SumoPod (produksi memakai URL ini) |
 
 ### Workshop Info
 
@@ -618,14 +693,16 @@ Status valid: `pending`, `approved`, `in_progress`, `done`, `cancelled`
 | Variable | Default | Keterangan |
 |----------|---------|------------|
 | `BOT_NAME` | BengkelBot | Nama bot dalam chat |
+| `BOT_TAGLINE` | Asisten pintar bengkel mobil Anda | Subjudul di chat UI |
 | `BOT_LANGUAGE` | id | Bahasa |
+| `NODE_ENV` | — | `production` di VPS |
 
 ### Web Server
 
 | Variable | Default | Keterangan |
 |----------|---------|------------|
-| `WEB_PORT` | 3000 | Port web server |
-| `WEB_HOST` | 127.0.0.1 | Host web server |
+| `WEB_PORT` | 3000 | Port web server (**produksi: 3012**) |
+| `WEB_HOST` | 127.0.0.1 | Bind address — tetap `127.0.0.1` di produksi (Apache yang expose ke publik) |
 
 ### Admin
 
@@ -642,35 +719,94 @@ Status valid: `pending`, `approved`, `in_progress`, `done`, `cancelled`
 
 - **Node.js 22.5+** (wajib — `node:sqlite` built-in)
 - npm
+- **Apache** dengan `mod_proxy`, `mod_proxy_http`, `mod_ssl` (produksi `cmaestro.my.id`)
 
-### Quick Start
+### Quick Start (lokal)
 
 ```bash
+cd repo
 npm install
 cp .env.example .env   # edit isi API keys
 npm run db:init         # inisialisasi DB + seed data
-npm run web             # atau npm run dev (WhatsApp) atau npm run tui
+npm run web             # Web UI — mode yang dipakai di produksi
+# npm run tui          # testing terminal
+# npm run dev          # WhatsApp — BELUM dipakai di produksi
 ```
 
-### Production (VPS)
+### Production — cmaestro.my.id (konfigurasi saat ini)
+
+**1. Build & jalankan web server via PM2**
 
 ```bash
-npm install --production
-npm run db:init
-pm2 start npm --name bengkelbot -- start
-pm2 save && pm2 startup
+cd /var/www/cmaestro.my.id/repo
+npm install
+npm run build
+pm2 start dist/web/server.js --name cmaestro-bengkelbot
+pm2 save
 ```
 
-### WhatsApp Session
+> **Jangan** pakai `pm2 start npm -- start` — script `start` menjalankan `dist/index.js` (mode WhatsApp), bukan web server.
 
+**2. Environment (`.env`)**
+
+```env
+WEB_PORT=3012
+WEB_HOST=127.0.0.1
+NODE_ENV=production
+LLM_PROVIDER=sumopod
+LLM_MODEL=deepseek-v4-pro
+# ... lihat .env.example untuk variabel lainnya
+```
+
+**3. Apache reverse proxy** (`/etc/apache2/sites-available/cmaestro.my.id-le-ssl.conf`)
+
+```apache
+<VirtualHost *:443>
+    ServerName cmaestro.my.id
+    ServerAlias www.cmaestro.my.id
+
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto "https"
+    ProxyPass / http://127.0.0.1:3012/
+    ProxyPassReverse / http://127.0.0.1:3012/
+
+    # SSL via Let's Encrypt
+    SSLCertificateFile /etc/letsencrypt/live/cmaestro.my.id/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/cmaestro.my.id/privkey.pem
+</VirtualHost>
+```
+
+Port 80 (`cmaestro.my.id.conf`) melakukan redirect permanen ke HTTPS.
+
+**4. Verifikasi**
+
+```bash
+curl -s http://127.0.0.1:3012/api/health    # Node langsung
+curl -sk https://cmaestro.my.id/api/health  # lewat Apache + SSL
+pm2 status cmaestro-bengkelbot
+```
+
+**5. Deploy ulang setelah perubahan kode**
+
+```bash
+cd /var/www/cmaestro.my.id/repo
+npm run build
+pm2 restart cmaestro-bengkelbot
+```
+
+### WhatsApp Session (opsional — belum diaktifkan)
+
+- Entry point: `npm run dev` → `src/index.ts`
 - Session disimpan di `auth/wa-session/`
-- **Backup folder ini!** — kehilangan = harus scan QR ulang
+- **Backup folder ini** jika WhatsApp diaktifkan — kehilangan = harus scan QR ulang
 - Baileys bisa disconnect setelah idle lama → gunakan PM2 untuk auto-restart
 
 ### Monitoring
 
-- Health check: `GET /api/health`
-- PM2: `pm2 status`, `pm2 logs bengkelbot`
+- Health check publik: `GET https://cmaestro.my.id/api/health`
+- Health check lokal: `GET http://127.0.0.1:3012/api/health`
+- PM2: `pm2 status`, `pm2 logs cmaestro-bengkelbot`
+- Apache: `/var/log/apache2/cmaestro.my.id_error.log`
 
 ---
 
@@ -678,14 +814,17 @@ pm2 save && pm2 startup
 
 | Masalah | Solusi |
 |---------|--------|
-| `Missing required env var: OPENAI_API_KEY` | Set `OPENAI_API_KEY` di `.env` |
+| Domain menampilkan "Website sedang aktif" | Apache proxy belum aktif atau Node tidak jalan — cek `ProxyPass` di Apache dan `pm2 status cmaestro-bengkelbot` |
+| `502 Bad Gateway` di domain | Node tidak listen di port yang benar — cek `WEB_PORT` di `.env` cocok dengan `ProxyPass` (harus `3012`) |
+| `Missing required env var: OPENAI_API_KEY` | Set `OPENAI_API_KEY` di `.env`, atau ganti `LLM_PROVIDER=sumopod` |
 | `Model tidak ditemukan` | Cek `LLM_PROVIDER` dan `LLM_MODEL` di `.env` |
-| WhatsApp QR tidak muncul | Pastikan `npm run dev` dijalankan, cek koneksi internet |
-| WhatsApp disconnect terus | Session mungkin corrupt — hapus `auth/wa-session/` lalu scan ulang |
-| Bot tidak merespons | Cek API key valid, cek `console.error` di terminal |
-| Web UI kosong | Buka console browser (F12) → cek error |
+| Bot tidak merespons | Cek API key valid, `pm2 logs cmaestro-bengkelbot` |
+| Web UI kosong | Buka console browser (F12) → cek error; pastikan `/api/health` mengembalikan `ok: true` |
 | DB locked error | Pastikan tidak ada 2 proses BengkelBot berjalan bersamaan |
 | Admin login gagal | Cek `ADMIN_USERNAME` dan `ADMIN_PASSWORD` di `.env` |
+| Perubahan kode tidak terlihat | Jalankan `npm run build` lalu `pm2 restart cmaestro-bengkelbot` |
+| WhatsApp QR tidak muncul | Hanya relevan jika WhatsApp diaktifkan — jalankan `npm run dev`, cek koneksi internet |
+| WhatsApp disconnect terus | Session corrupt — hapus `auth/wa-session/` lalu scan ulang |
 
 ---
 
@@ -728,10 +867,20 @@ pm2 save && pm2 startup
 
 ```bash
 npm run tui           # terminal chat
-npm run web           # buka http://localhost:3000
-npm run dev           # WhatsApp (butuh scan QR)
+npm run web           # buka http://localhost:3000 (atau WEB_PORT di .env)
+# npm run dev         # WhatsApp — belum dipakai di produksi
 ```
+
+### Catatan untuk AI Agent
+
+Saat bekerja di deployment `cmaestro.my.id`:
+
+1. **Mode aktif = Web only** — jangan setup WhatsApp kecuali diminta.
+2. **Reverse proxy sudah ada** — Apache mem-proxy ke `127.0.0.1:3012`; jangan asumsikan perlu setup Nginx/proxy baru.
+3. **PM2 process** bernama `cmaestro-bengkelbot`, menjalankan `dist/web/server.js`.
+4. **Static files** chat UI ada di `repo/public/`, bukan `/var/www/cmaestro.my.id/public/`.
+5. **Setelah edit TypeScript**, wajib `npm run build` + `pm2 restart cmaestro-bengkelbot`.
 
 ---
 
-*Dokumen ini di-generate otomatis dari codebase BengkelBot. Terakhir diperbarui: Juni 2026.*
+*Dokumen ini mencerminkan deployment produksi BengkelBot di cmaestro.my.id. Terakhir diperbarui: Juni 2026.*

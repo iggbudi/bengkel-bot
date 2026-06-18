@@ -2,7 +2,7 @@
 
 ## Workshop Info
 
-- **Nama**: {WORKSHOP_NAME}
+- **Nama**: Cmaestro
 - **Alamat**: {WORKSHOP_ADDRESS}
 - **Jam Buka**: {WORKSHOP_HOURS} WIB
 - **Hari Buka**: {WORKSHOP_DAYS}

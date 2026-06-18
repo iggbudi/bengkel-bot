@@ -12,8 +12,16 @@ let messages = loadMessages()
 let busy = false
 let currentBotBubble = null
 
+const QUICK_PROMPTS = [
+  'Service completo berapa harganya?',
+  'Mau booking besok jam 9 pagi',
+  'Rem depan bunyi aneh, kenapa ya?',
+  'Jam buka dan alamat bengkel?',
+]
+
 renderMessages()
 checkHealth()
+handleInitialQuery()
 
 formEl.addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -72,7 +80,31 @@ function renderMessages() {
   if (messages.length === 0 && !currentBotBubble) {
     const empty = document.createElement('div')
     empty.className = 'empty'
-    empty.textContent = 'Mulai test chatbot bengkel. Contoh: "service completo berapa?", "cek status B1234CD", atau "mau booking besok jam 9".'
+
+    const title = document.createElement('p')
+    title.className = 'empty-title'
+    title.textContent = 'Halo! Ada yang bisa dibantu?'
+
+    const desc = document.createElement('p')
+    desc.className = 'empty-desc'
+    desc.textContent = 'Tanya harga, booking service, atau cek status perbaikan.'
+
+    const prompts = document.createElement('div')
+    prompts.className = 'empty-prompts'
+    for (const text of QUICK_PROMPTS) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'empty-prompt'
+      btn.textContent = text
+      btn.addEventListener('click', () => {
+        if (busy) return
+        addMessage('user', text)
+        sendMessage(text)
+      })
+      prompts.appendChild(btn)
+    }
+
+    empty.append(title, desc, prompts)
     messagesEl.appendChild(empty)
     return
   }
@@ -117,12 +149,30 @@ function setErrorBubble(text) {
   scrollToBottom()
 }
 
+function applyBranding(data) {
+  const name = data?.workshop?.trim() || data?.bot?.trim() || 'BengkelBot'
+  const titleEl = document.querySelector('#app-title')
+  if (titleEl) titleEl.textContent = `🔧 ${name}`
+  document.title = `Chat — ${name}`
+}
+
+function handleInitialQuery() {
+  const params = new URLSearchParams(window.location.search)
+  const query = params.get('q')?.trim()
+  if (!query || busy) return
+
+  window.history.replaceState({}, '', '/chat')
+  addMessage('user', query)
+  sendMessage(query)
+}
+
 async function checkHealth() {
   try {
     const res = await fetch('/api/health')
     const data = await res.json()
+    applyBranding(data)
     statusEl.textContent = data.ok
-      ? `${data.workshop} • ${data.llm}`
+      ? (data.tagline || 'Asisten pintar bengkel mobil Anda')
       : `Konfigurasi belum lengkap: ${data.configError}`
     statusEl.style.color = data.ok ? '' : 'var(--danger)'
   } catch {

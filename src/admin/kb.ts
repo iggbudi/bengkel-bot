@@ -10,7 +10,10 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const KB_DIR = join(__dirname, '../kb')
+// dist/admin/*.js → ../../src/kb ; src/admin/*.ts (tsx) → ../kb
+const KB_DIR = existsSync(join(__dirname, '../kb'))
+  ? join(__dirname, '../kb')
+  : join(__dirname, '../../src/kb')
 
 export const KB_FILES: Record<string, { label: string; file: string }> = {
   faq: { label: 'FAQ', file: 'faq.md' },

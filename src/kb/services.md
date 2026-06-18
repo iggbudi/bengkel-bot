@@ -6,7 +6,7 @@
 
 | # | Nama Service | Deskripsi | Estimasi Harga |
 |---|---|---|---|
-| 1 | **Service Lengkap** | Ganti oli + cek rem, kampas, aki, busi, cairan, wiper, cuci ringan | Rp 350.000 - 600.000 |
+| 1 | **Service Lengkap** | Ganti oli + cek rem, kampas, aki, busi, cairan, wiper, cuci ringan | Rp 350.000 - 500.000|
 | 2 | **Ganti Oli Saja** | Ganti oli mesin + filter oli | Rp 150.000 - 300.000 |
 | 3 | **Tune Up** | Cek busi, koil, filter, cairan rem/coolant/wiper, klep | Rp 250.000 - 500.000 |
 | 4 | **Ganti Rem Depan** | Ganti kampas rem depan + cek disc | Rp 200.000 - 400.000 |

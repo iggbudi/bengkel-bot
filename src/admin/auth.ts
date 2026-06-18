@@ -60,19 +60,36 @@ export function destroySession(req: IncomingMessage): void {
   if (match) sessions.delete(match[1])
 }
 
-export function setSessionCookie(res: ServerResponse, session: AdminSession): void {
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=${session.id}; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=${SESSION_TTL / 1000}`)
+function isSecureRequest(req: IncomingMessage): boolean {
+  const proto = req.headers['x-forwarded-proto']
+  if (typeof proto === 'string' && proto.split(',')[0].trim() === 'https') return true
+  return process.env.NODE_ENV === 'production'
 }
 
-export function clearSessionCookie(res: ServerResponse): void {
-  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=0`)
+function buildCookie(value: string, req: IncomingMessage, maxAge: number): string {
+  const secure = isSecureRequest(req) ? '; Secure' : ''
+  return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax${secure}; Max-Age=${maxAge}`
+}
+
+export function setSessionCookie(res: ServerResponse, session: AdminSession, req: IncomingMessage): void {
+  res.setHeader('Set-Cookie', buildCookie(session.id, req, SESSION_TTL / 1000))
+}
+
+export function clearSessionCookie(res: ServerResponse, req: IncomingMessage): void {
+  res.setHeader('Set-Cookie', buildCookie('', req, 0))
 }
 
 export function requireAuth(req: IncomingMessage, res: ServerResponse): AdminSession | null {
   const session = getSession(req)
   if (!session) {
-    res.writeHead(302, { Location: '/admin/login' })
-    res.end()
+    const isApi = (req.url ?? '').startsWith('/admin/api/')
+    if (isApi) {
+      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' })
+      res.end(JSON.stringify({ error: 'Unauthorized' }))
+    } else {
+      res.writeHead(302, { Location: '/admin/login' })
+      res.end()
+    }
     return null
   }
   return session
