@@ -2,12 +2,14 @@ const messagesEl = document.querySelector('#messages')
 const formEl = document.querySelector('#chatForm')
 const inputEl = document.querySelector('#messageInput')
 const sendBtn = document.querySelector('#sendBtn')
-const clearBtn = document.querySelector('#clearBtn')
+const newSessionBtn = document.querySelector('#newSessionBtn')
 const statusEl = document.querySelector('#status')
+const customerNameInput = document.querySelector('#customerNameInput')
 
 const chatIdKey = 'bengkelbot.chatId'
 const messagesKey = 'bengkelbot.messages'
-const chatId = getOrCreateChatId()
+const customerNameKey = 'bengkelbot.customerName'
+let chatId = getOrCreateChatId()
 let messages = loadMessages()
 let busy = false
 let currentBotBubble = null
@@ -19,9 +21,13 @@ const QUICK_PROMPTS = [
   'Jam buka dan alamat bengkel?',
 ]
 
+initCustomerName()
 renderMessages()
 checkHealth()
 handleInitialQuery()
+
+customerNameInput?.addEventListener('change', saveCustomerName)
+customerNameInput?.addEventListener('blur', saveCustomerName)
 
 formEl.addEventListener('submit', async (event) => {
   event.preventDefault()
@@ -33,12 +39,41 @@ formEl.addEventListener('submit', async (event) => {
   await sendMessage(message)
 })
 
-clearBtn.addEventListener('click', () => {
-  if (!confirm('Hapus chat lokal di browser? History di database server tidak ikut dihapus.')) return
+newSessionBtn.addEventListener('click', () => {
+  if (busy) return
+  if (!confirm('Mulai percakapan baru? Bot tidak akan mengingat pesan sebelumnya.')) return
+  startNewSession()
+})
+
+function startNewSession() {
+  chatId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  localStorage.setItem(chatIdKey, chatId)
   messages = []
   saveMessages()
   renderMessages()
-})
+  customerNameInput?.focus()
+}
+
+function initCustomerName() {
+  if (!customerNameInput) return
+  customerNameInput.value = localStorage.getItem(customerNameKey) || ''
+}
+
+function saveCustomerName() {
+  if (!customerNameInput) return
+  const name = customerNameInput.value.trim()
+  if (name) localStorage.setItem(customerNameKey, name)
+  else localStorage.removeItem(customerNameKey)
+  renderMessages()
+}
+
+function getCustomerName() {
+  const fromInput = customerNameInput?.value?.trim()
+  if (fromInput) return fromInput
+  const stored = localStorage.getItem(customerNameKey)?.trim()
+  if (stored) return stored
+  return 'Pelanggan'
+}
 
 function getOrCreateChatId() {
   const existing = localStorage.getItem(chatIdKey)
@@ -83,7 +118,8 @@ function renderMessages() {
 
     const title = document.createElement('p')
     title.className = 'empty-title'
-    title.textContent = 'Halo! Ada yang bisa dibantu?'
+    const name = getCustomerName()
+    title.textContent = name !== 'Pelanggan' ? `Halo, ${name}! Ada yang bisa dibantu?` : 'Halo! Ada yang bisa dibantu?'
 
     const desc = document.createElement('p')
     desc.className = 'empty-desc'
@@ -150,9 +186,9 @@ function setErrorBubble(text) {
 }
 
 function applyBranding(data) {
-  const name = data?.workshop?.trim() || data?.bot?.trim() || 'BengkelBot'
+  const name = data?.workshop?.trim() || data?.bot?.trim() || 'CMaestro'
   const titleEl = document.querySelector('#app-title')
-  if (titleEl) titleEl.textContent = `🔧 ${name}`
+  if (titleEl) titleEl.textContent = name
   document.title = `Chat — ${name}`
 }
 
@@ -182,12 +218,13 @@ async function checkHealth() {
 }
 
 async function sendMessage(message) {
+  saveCustomerName()
   setBusy(true)
   currentBotBubble = createBotBubble()
 
   const params = new URLSearchParams({
     chatId,
-    customerName: 'Web Tester',
+    customerName: getCustomerName(),
     message,
   })
 
@@ -263,5 +300,6 @@ function setBusy(value) {
   busy = value
   inputEl.disabled = value
   sendBtn.disabled = value
+  if (customerNameInput) customerNameInput.disabled = value
   if (!value) renderMessages()
 }

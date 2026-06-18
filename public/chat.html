@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chat — BengkelBot</title>
+    <title>Chat — CMaestro</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
@@ -11,25 +12,37 @@
       <header class="header">
         <div class="header-main">
           <a href="/" class="back-link" aria-label="Kembali ke beranda">←</a>
-          <div>
-            <h1 id="app-title">🔧 ...</h1>
+          <img src="/logo.svg" alt="" class="header-logo" width="36" height="36" />
+          <div class="header-text">
+            <h1 id="app-title">CMaestro</h1>
             <p id="status">Menghubungkan...</p>
           </div>
         </div>
-        <button id="clearBtn" type="button">Clear</button>
+        <button id="newSessionBtn" type="button">Sesi Baru</button>
       </header>
 
       <section id="messages" class="messages" aria-live="polite"></section>
 
       <form id="chatForm" class="composer">
-        <input
-          id="messageInput"
-          type="text"
-          autocomplete="off"
-          placeholder="Tulis pesan pelanggan..."
-          autofocus
-        />
-        <button id="sendBtn" type="submit">Kirim</button>
+        <div class="composer-meta">
+          <label for="customerNameInput" class="composer-label">Nama</label>
+          <input
+            id="customerNameInput"
+            type="text"
+            autocomplete="name"
+            placeholder="Nama Anda"
+            maxlength="60"
+          />
+        </div>
+        <div class="composer-row">
+          <input
+            id="messageInput"
+            type="text"
+            autocomplete="off"
+            placeholder="Tulis pesan..."
+          />
+          <button id="sendBtn" type="submit">Kirim</button>
+        </div>
       </form>
     </main>
 

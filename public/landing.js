@@ -7,6 +7,8 @@ async function loadBranding() {
     const tagline = data.tagline || 'Booking, estimasi biaya & konsultasi — kapan saja.'
 
     document.title = `${name} — Asisten Bengkel Mobil`
+    setOgMeta('og:title', `${name} — Asisten Bengkel Mobil`)
+    setOgMeta('og:description', tagline)
     setText('brand-name', name)
     setText('hero-title', tagline)
     setText('hero-tagline', buildSubtitle(data))
@@ -28,6 +30,11 @@ async function loadBranding() {
 function setText(id, text) {
   const el = document.getElementById(id)
   if (el) el.textContent = text
+}
+
+function setOgMeta(property, content) {
+  const el = document.querySelector(`meta[property="${property}"]`)
+  if (el) el.setAttribute('content', content)
 }
 
 function buildSubtitle(data) {
