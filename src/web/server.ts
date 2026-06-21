@@ -6,6 +6,7 @@
  */
 
 import { config as loadEnv } from 'dotenv'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getDb } from '../db/schema.js'
 import { BengkelBot, createBotConfigFromEnv } from '../bot/agent.js'
@@ -40,7 +41,10 @@ async function main(): Promise<void> {
   })
 }
 
-const isMain = process.argv[1] === fileURLToPath(import.meta.url)
+const scriptPath = fileURLToPath(import.meta.url)
+const isMain =
+  process.env.pm_exec_path === scriptPath ||
+  (process.argv[1] != null && resolve(process.argv[1]) === scriptPath)
 
 if (isMain) {
   main().catch((err) => {
