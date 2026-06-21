@@ -35,6 +35,7 @@ import {
 } from './chat-auth.js'
 import { parseChatInput, validateChatId } from './chat-validation.js'
 import { applyRateLimit, getChatRateLimit, getTokenRateLimit } from './rate-limit.js'
+import { isLlmTimeoutError } from '../bot/llm-timeout.js'
 
 loadEnv({ override: true })
 
@@ -226,8 +227,14 @@ async function main(): Promise<void> {
             }),
             reqAbort,
           ])
-        } catch (err: any) {
-          send('error', { error: err?.message || 'Maaf, ada gangguan teknis.' })
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : 'Maaf, ada gangguan teknis.'
+          send('error', {
+            error: isLlmTimeoutError(err)
+              ? message
+              : message || 'Maaf, ada gangguan teknis.',
+            timeout: isLlmTimeoutError(err),
+          })
           res.end()
         }
         return
@@ -262,8 +269,14 @@ async function main(): Promise<void> {
         }
 
         const { chatId, customerName, message } = parsed.data
-        const reply = await bot.processMessage(`web:${chatId}`, customerName, message)
-        json(res, 200, { reply })
+        try {
+          const reply = await bot.processMessage(`web:${chatId}`, customerName, message)
+          json(res, 200, { reply })
+        } catch (err: unknown) {
+          const status = isLlmTimeoutError(err) ? 504 : 500
+          const errorMsg = err instanceof Error ? err.message : 'Maaf, ada gangguan teknis.'
+          json(res, status, { error: errorMsg, timeout: isLlmTimeoutError(err) })
+        }
         return
       }
 

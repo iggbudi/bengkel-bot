@@ -1,6 +1,15 @@
 /**
  * BengkelBot Database Schema
- * SQLite via Node.js built-in node:sqlite (no native compilation required)
+ *
+ * SQLite via Node.js built-in `node:sqlite` (experimental since Node 22.5).
+ *
+ * Risk: API may change before stabilization — monitor Node.js release notes.
+ * Migration path if needed:
+ *   1. `better-sqlite3` (mature, native bindings), or
+ *   2. `sql.js` (WASM, no native compile), or
+ *   3. Wait for stable `node:sqlite` and upgrade Node LTS.
+ *
+ * ExperimentalWarning is suppressed in PM2 via ecosystem.config.cjs node_args.
  */
 
 import { DatabaseSync } from 'node:sqlite'

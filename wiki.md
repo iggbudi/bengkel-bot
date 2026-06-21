@@ -760,12 +760,13 @@ npm run web             # Web UI — mode yang dipakai di produksi
 ```bash
 cd /var/www/cmaestro.my.id/repo
 npm install
-npm run build
-pm2 start dist/web/server.js --name cmaestro-bengkelbot
+npm run build:all
+pm2 start ecosystem.config.cjs
 pm2 save
 ```
 
-> **Jangan** pakai `pm2 start npm -- start` — script `start` menjalankan `dist/index.js` (mode WhatsApp), bukan web server.
+> **Jangan** pakai `pm2 start npm -- start` — script `start` menjalankan `dist/index.js` (mode WhatsApp), bukan web server.  
+> `ecosystem.config.cjs` mengatur `max_restarts`, log terpisah (`logs/`), dan suppress SQLite experimental warning.
 
 **2. Environment (`.env`)**
 
@@ -810,8 +811,7 @@ pm2 status cmaestro-bengkelbot
 
 ```bash
 cd /var/www/cmaestro.my.id/repo
-npm run build
-pm2 restart cmaestro-bengkelbot
+npm run deploy
 ```
 
 ### WhatsApp Session (opsional — belum diaktifkan)
@@ -842,7 +842,7 @@ pm2 restart cmaestro-bengkelbot
 | Web UI kosong | Buka console browser (F12) → cek error; pastikan `/api/health` mengembalikan `ok: true` |
 | DB locked error | Pastikan tidak ada 2 proses BengkelBot berjalan bersamaan |
 | Admin login gagal | Cek `ADMIN_USERNAME` dan `ADMIN_PASSWORD` di `.env` |
-| Perubahan kode tidak terlihat | Jalankan `npm run build` lalu `pm2 restart cmaestro-bengkelbot` |
+| Perubahan kode tidak terlihat | Jalankan `npm run deploy` (build:all + pm2 reload) |
 | WhatsApp QR tidak muncul | Hanya relevan jika WhatsApp diaktifkan — jalankan `npm run dev`, cek koneksi internet |
 | WhatsApp disconnect terus | Session corrupt — hapus `auth/wa-session/` lalu scan ulang |
 
@@ -899,7 +899,7 @@ Saat bekerja di deployment `cmaestro.my.id`:
 2. **Reverse proxy sudah ada** — Apache mem-proxy ke `127.0.0.1:3012`; jangan asumsikan perlu setup Nginx/proxy baru.
 3. **PM2 process** bernama `cmaestro-bengkelbot`, menjalankan `dist/web/server.js`.
 4. **Static files** chat UI ada di `repo/public/`, bukan `/var/www/cmaestro.my.id/public/`.
-5. **Setelah edit TypeScript**, wajib `npm run build` + `pm2 restart cmaestro-bengkelbot`.
+5. **Setelah edit TypeScript/React**, wajib `npm run deploy` (`build:all` + `pm2 startOrReload ecosystem.config.cjs`).
 
 ---
 

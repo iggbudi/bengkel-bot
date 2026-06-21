@@ -42,19 +42,27 @@
 
 ---
 
-## Sprint 2 — Stabilitas & Bug Fix (P1)
+## Sprint 2 — Stabilitas & Bug Fix (P1) ✅
 
 **Durasi:** 4–6 hari  
-**Tujuan:** Perbaiki bug perilaku dan kurangi risiko crash/restart
+**Tujuan:** Perbaiki bug perilaku dan kurangi risiko crash/restart  
+**Status:** Selesai
 
-| # | Task | File/Area | Effort | Acceptance Criteria |
-|---|------|-----------|--------|---------------------|
-| 2.1 | Fix escalate channel detection | `src/bot/agent.ts` | S | Escalate dari web pakai channel `web`, bukan hardcoded `whatsapp` |
-| 2.2 | Refactor `processMessage` + `processMessageStream` | `src/bot/agent.ts` | M | Satu core method, duplikasi < 30 baris |
-| 2.3 | Graceful error handling LLM timeout | `src/bot/agent.ts`, `server.ts` | M | Timeout 60s; SSE kirim event `error` yang jelas ke client |
-| 2.4 | PM2 monitoring & alert | VPS / PM2 | S | `max_restarts` dikonfigurasi; log error LLM terpisah |
-| 2.5 | Wrap `node:sqlite` experimental warning | `src/db/schema.ts` | S | Dokumentasi risiko + rencana migrasi jika API berubah |
-| 2.6 | Fix `build:all` di deploy script | `package.json`, docs | S | Deploy produksi selalu build TypeScript + React chat UI |
+| # | Task | File/Area | Effort | Status |
+|---|------|-----------|--------|--------|
+| 2.1 | Fix escalate channel detection | `src/bot/agent.ts` | S | ✅ |
+| 2.2 | Refactor `processMessage` + `processMessageStream` | `src/bot/agent.ts` | M | ✅ |
+| 2.3 | Graceful error handling LLM timeout | `src/bot/llm-timeout.ts`, `server.ts` | M | ✅ |
+| 2.4 | PM2 monitoring & alert | `ecosystem.config.cjs` | S | ✅ |
+| 2.5 | Wrap `node:sqlite` experimental warning | `src/db/schema.ts`, PM2 `node_args` | S | ✅ |
+| 2.6 | Fix `build:all` di deploy script | `package.json`, `README.md` | S | ✅ |
+
+**Definition of Done:**
+- [x] Escalate memakai channel yang benar (`web`/`whatsapp`/`telegram`)
+- [x] Agent logic terpusat di `processMessageCore`
+- [x] LLM timeout 60s (configurable via `LLM_TIMEOUT_MS`)
+- [x] PM2 ecosystem dengan `max_restarts: 10`, log terpisah
+- [x] `npm run deploy` = `build:all` + `pm2 startOrReload`
 
 ---
 
@@ -123,7 +131,7 @@
 
 ```
 Minggu 1–2   ██████████ Sprint 1 (P0 Security)        ✅
-Minggu 2–3   ████████████ Sprint 2 (P1 Stability)
+Minggu 2–3   ████████████ Sprint 2 (P1 Stability)     ✅
 Minggu 4–5   ██████████████ Sprint 3 (P1 Testing)
 Minggu 6     ████████ Sprint 4 (P2 Admin)
 Minggu 7     ██████ Sprint 5 (P2 Observability)

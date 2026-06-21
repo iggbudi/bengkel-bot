@@ -238,12 +238,13 @@ Atau edit langsung via Admin Dashboard → Knowledge Base.
 ```bash
 cd /var/www/cmaestro.my.id/repo
 npm install
-npm run build
-pm2 start dist/web/server.js --name cmaestro-bengkelbot
+npm run build:all
+pm2 start ecosystem.config.cjs
 pm2 save
 ```
 
-> **Jangan** pakai `pm2 start npm -- start` — itu menjalankan mode WhatsApp (`dist/index.js`), bukan web server.
+> **Jangan** pakai `pm2 start npm -- start` — itu menjalankan mode WhatsApp (`dist/index.js`), bukan web server.  
+> Gunakan `ecosystem.config.cjs` untuk `max_restarts`, log terpisah, dan suppress SQLite experimental warning.
 
 ### Environment produksi
 
@@ -269,8 +270,10 @@ ProxyPassReverse / http://127.0.0.1:3012/
 ### Deploy ulang setelah perubahan kode
 
 ```bash
-npm run build
-pm2 restart cmaestro-bengkelbot
+npm run deploy
+# atau manual:
+npm run build:all
+pm2 startOrReload ecosystem.config.cjs
 ```
 
 ### Verifikasi
