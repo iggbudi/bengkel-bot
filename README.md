@@ -192,20 +192,13 @@ Belum diimplementasi.
 - **Produksi:** https://cmaestro.my.id/admin
 - **Lokal:** http://localhost:3000/admin
 
-Default login:
-
-```txt
-Username: admin
-Password: Unisbank1920
-```
-
 Fitur: KB editor, booking management, sesi chat, settings (update `.env`).
 
-Ubah credential via env:
+Atur credential via `.env`:
 
 ```env
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=Unisbank1920
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_secure_password
 ```
 
 ---
