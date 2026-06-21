@@ -12,24 +12,46 @@
  * ExperimentalWarning is suppressed in PM2 via ecosystem.config.cjs node_args.
  */
 
-import { DatabaseSync } from 'node:sqlite'
+import { DatabaseSync, type DatabaseSyncInstance } from './sqlite.js'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { mkdirSync, existsSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = join(__dirname, '../../data/bengkelbot.db')
+const DEFAULT_DB_PATH = join(__dirname, '../../data/bengkelbot.db')
 
-let _db: DatabaseSync | null = null
+let _db: DatabaseSyncInstance | null = null
+let _dbPathOverride: string | null = null
 
-export function getDb(): DatabaseSync {
+export function configureDbPath(path: string): void {
+  if (_db) {
+    _db.close()
+    _db = null
+  }
+  _dbPathOverride = path
+}
+
+export function resetDb(): void {
+  if (_db) {
+    _db.close()
+    _db = null
+  }
+  _dbPathOverride = null
+}
+
+function resolveDbPath(): string {
+  return _dbPathOverride ?? process.env.BENGKELBOT_DB_PATH ?? DEFAULT_DB_PATH
+}
+
+export function getDb(): DatabaseSyncInstance {
   if (!_db) {
-    const dataDir = join(__dirname, '../../data')
+    const dbPath = resolveDbPath()
+    const dataDir = dirname(dbPath)
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true })
     }
 
-    _db = new DatabaseSync(DB_PATH)
+    _db = new DatabaseSync(dbPath)
     _db.exec('PRAGMA journal_mode = WAL')
     _db.exec('PRAGMA foreign_keys = ON')
     initSchema(_db)
@@ -37,7 +59,7 @@ export function getDb(): DatabaseSync {
   return _db
 }
 
-function initSchema(db: DatabaseSync): void {
+function initSchema(db: DatabaseSyncInstance): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS workshops (
       id TEXT PRIMARY KEY,
@@ -225,10 +247,13 @@ export const ConversationRepo = {
 
     if (existing) {
       const messagesToStore = data.messages ? serializedMessages : existing.messages
+      const customerId = data.customer_id ?? existing.customer_id
       db.prepare(
-        'UPDATE conversations SET messages = ?, last_message_at = CURRENT_TIMESTAMP WHERE id = ?'
-      ).run(messagesToStore, existing.id)
-      return { ...existing, messages: messagesToStore }
+        `UPDATE conversations
+         SET messages = ?, customer_id = ?, last_message_at = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      ).run(messagesToStore, customerId, existing.id)
+      return { ...existing, messages: messagesToStore, customer_id: customerId }
     }
 
     const id = data.id ?? crypto.randomUUID()
@@ -242,6 +267,19 @@ export const ConversationRepo = {
   getMessages(chatId: string, channel: string): unknown[] {
     const row = getDb().prepare('SELECT messages FROM conversations WHERE chat_id = ? AND channel = ?').get(chatId, channel) as { messages: string } | undefined
     return row ? JSON.parse(row.messages) : []
+  },
+
+  getCustomerId(chatId: string, channel: string): string | null {
+    const row = getDb()
+      .prepare('SELECT customer_id FROM conversations WHERE chat_id = ? AND channel = ?')
+      .get(chatId, channel) as { customer_id: string | null } | undefined
+    return row?.customer_id ?? null
+  },
+
+  linkCustomer(chatId: string, channel: string, customerId: string): void {
+    getDb()
+      .prepare('UPDATE conversations SET customer_id = ? WHERE chat_id = ? AND channel = ?')
+      .run(customerId, chatId, channel)
   },
 
   listAll(options?: { channel?: string; limit?: number; offset?: number }): Array<{

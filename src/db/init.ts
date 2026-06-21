@@ -4,23 +4,12 @@
  */
 
 import { getDb } from './schema.js'
+import { seedWorkshop } from './seed.js'
 import { v4 as uuidv4 } from 'uuid'
 
 const db = getDb()
 
-// Seed demo workshop
-db.prepare(`
-  INSERT OR IGNORE INTO workshops (id, name, address, phone, hours, days, specialization)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-`).run(
-  'default',
-  process.env.WORKSHOP_NAME ?? 'Bengkel Demo Semarang',
-  process.env.WORKSHOP_ADDRESS ?? 'Jl. Tembalang No.1, Semarang',
-  process.env.WORKSHOP_PHONE ?? '081234567890',
-  process.env.WORKSHOP_HOURS ?? '08.00-17.00',
-  process.env.WORKSHOP_DAYS ?? 'Senin-Sabtu',
-  process.env.WORKSHOP_SPECIALIZATION ?? 'Mobil umum (Honda, Toyota, Suzuki, Daihatsu)'
-)
+seedWorkshop(db)
 
 // Seed demo bookings
 const demoBookings = [
@@ -41,4 +30,5 @@ for (const b of demoBookings) {
 
 console.log('✅ Database initialized with schema + seed data')
 console.log('   Tables: workshops, customers, bookings, conversations')
+console.log(`   Workshop: ${process.env.WORKSHOP_NAME ?? 'Bengkel Demo Semarang'}`)
 console.log(`   Demo bookings: ${demoBookings.length} records`)

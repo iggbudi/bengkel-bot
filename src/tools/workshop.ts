@@ -4,9 +4,30 @@
  */
 
 import { z } from 'zod'
-import { CustomerRepo, BookingRepo } from '../db/schema.js'
+import { CustomerRepo, BookingRepo, ConversationRepo } from '../db/schema.js'
 
 const WORKSHOP_ID = 'default'
+
+type ToolChannel = 'whatsapp' | 'telegram' | 'web'
+
+export interface WorkshopToolContext {
+  chatId?: string
+  channel?: ToolChannel
+}
+
+let _toolContext: WorkshopToolContext | null = null
+
+export function setWorkshopToolContext(ctx: WorkshopToolContext): void {
+  _toolContext = ctx
+}
+
+export function clearWorkshopToolContext(): void {
+  _toolContext = null
+}
+
+export function getWorkshopToolContext(): WorkshopToolContext | null {
+  return _toolContext
+}
 
 // ── Tool definitions (OpenAI tool-call format) ────────────────────────────
 
@@ -149,6 +170,12 @@ export async function handleWorkshopTool(call: ToolCall): Promise<string> {
         car_model: car_model ?? null,
         plate_number: plate_number ?? null,
       })
+
+      const ctx = getWorkshopToolContext()
+      if (ctx?.chatId && ctx.channel) {
+        ConversationRepo.linkCustomer(ctx.chatId, ctx.channel, customer.id)
+      }
+
       return JSON.stringify({ success: true, customer_id: customer.id })
     }
 

@@ -13,5 +13,5 @@
     "sourceMap": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/chat-ui"]
+  "exclude": ["node_modules", "dist", "src/chat-ui", "src/**/*.test.ts", "src/test"]
 }

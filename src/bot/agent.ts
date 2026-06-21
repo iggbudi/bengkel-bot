@@ -14,7 +14,11 @@ import {
   type AgentSessionEvent,
 } from '@earendil-works/pi-coding-agent'
 import { v4 as uuidv4 } from 'uuid'
-import { handleWorkshopTool } from '../tools/workshop.js'
+import {
+  handleWorkshopTool,
+  setWorkshopToolContext,
+  clearWorkshopToolContext,
+} from '../tools/workshop.js'
 import { createWorkshopPiTools } from '../tools/workshop-pi.js'
 import { buildSystemPrompt } from './system-prompt.js'
 import { getLlmTimeoutMs, withTimeout } from './llm-timeout.js'
@@ -241,12 +245,13 @@ export class BengkelBot {
       { role: 'user', content: message, at: now },
       { role: 'assistant', content: finalText, at: now },
     ]
+    const customerId = ConversationRepo.getCustomerId(chatId, channel)
     ConversationRepo.upsert({
       id: uuidv4(),
       workshop_id: 'default',
       chat_id: chatId,
       channel,
-      customer_id: null,
+      customer_id: customerId,
       last_message_at: null,
       messages: updatedHistory,
       escalated: false,
@@ -298,6 +303,7 @@ export class BengkelBot {
 
     let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null
 
+    setWorkshopToolContext({ chatId, channel: resolvedChannel })
     try {
       const created = await this.createSession(systemPrompt, model)
       session = created.session
@@ -316,6 +322,7 @@ export class BengkelBot {
       console.error('[LLM] Error:', msg)
       throw err
     } finally {
+      clearWorkshopToolContext()
       session?.dispose()
     }
   }

@@ -66,19 +66,26 @@
 
 ---
 
-## Sprint 3 — Testing & Data Integrity (P1)
+## Sprint 3 — Testing & Data Integrity (P1) ✅
 
 **Durasi:** 5–7 hari  
-**Tujuan:** Confidence untuk deploy tanpa regresi
+**Tujuan:** Confidence untuk deploy tanpa regresi  
+**Status:** Selesai
 
-| # | Task | File/Area | Effort | Acceptance Criteria |
-|---|------|-----------|--------|---------------------|
-| 3.1 | Setup test runner (Vitest) | `package.json`, config | S | `npm test` jalan di CI/lokal |
-| 3.2 | Unit test workshop tools | `src/tools/workshop.ts` | M | Coverage: lookup, create booking, upsert customer, escalate |
-| 3.3 | Unit test repository | `src/db/schema.ts` | M | CRUD bookings, conversations, customers |
-| 3.4 | Integration test chat API | `src/web/server.ts` | M | Health, SSE flow mock LLM, rate limit |
-| 3.5 | Link customer ke conversation | `src/bot/agent.ts`, `schema.ts` | M | Saat `upsert_customer` dipanggil tool, `customer_id` tersimpan di conversation |
-| 3.6 | Seed data audit | `src/db/init.ts` | S | Workshop CMaestro konsisten dengan `.env` produksi |
+| # | Task | File/Area | Effort | Status |
+|---|------|-----------|--------|--------|
+| 3.1 | Setup test runner (Vitest) | `vitest.config.ts`, `package.json` | S | ✅ |
+| 3.2 | Unit test workshop tools | `src/tools/workshop.test.ts` | M | ✅ |
+| 3.3 | Unit test repository | `src/db/schema.test.ts` | M | ✅ |
+| 3.4 | Integration test chat API | `src/web/app.test.ts` | M | ✅ |
+| 3.5 | Link customer ke conversation | `workshop.ts`, `agent.ts`, `schema.ts` | M | ✅ |
+| 3.6 | Seed data audit | `src/db/seed.ts`, `seed.test.ts` | S | ✅ |
+
+**Definition of Done:**
+- [x] `npm test` — 16 tests hijau
+- [x] Tool `upsert_customer` link `customer_id` ke conversation
+- [x] Workshop seed upsert dari `.env` (bukan insert-only)
+- [x] `createWebApp()` extract untuk integration test
 
 ---
 
@@ -132,7 +139,7 @@
 ```
 Minggu 1–2   ██████████ Sprint 1 (P0 Security)        ✅
 Minggu 2–3   ████████████ Sprint 2 (P1 Stability)     ✅
-Minggu 4–5   ██████████████ Sprint 3 (P1 Testing)
+Minggu 4–5   ██████████████ Sprint 3 (P1 Testing)       ✅
 Minggu 6     ████████ Sprint 4 (P2 Admin)
 Minggu 7     ██████ Sprint 5 (P2 Observability)
 Minggu 8+    ████████████ Sprint 6 (P3 Architecture) — opsional

@@ -96,3 +96,9 @@ export function getTokenRateLimit(): number {
   const n = Number(process.env.RATE_LIMIT_TOKEN_PER_MIN ?? 30)
   return Number.isFinite(n) && n > 0 ? n : 30
 }
+
+/** Reset in-memory buckets — for tests only. */
+export function resetRateLimits(): void {
+  buckets.clear()
+  lastCleanup = Date.now()
+}

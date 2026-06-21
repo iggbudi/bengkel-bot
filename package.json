@@ -11,11 +11,13 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "start:web": "node dist/web/server.js",
-    "deploy": "npm run build:all && pm2 startOrReload ecosystem.config.cjs",
+    "deploy": "npm test && npm run build:all && pm2 startOrReload ecosystem.config.cjs",
     "db:init": "tsx src/db/init.ts",
     "chat:dev": "vite --config vite.chat.config.ts",
     "chat:build": "vite build --config vite.chat.config.ts",
-    "build:all": "tsc && vite build --config vite.chat.config.ts"
+    "build:all": "tsc && vite build --config vite.chat.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.79.1",
@@ -39,7 +41,8 @@
     "@vitejs/plugin-react": "^4.3.4",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
   },
   "engines": {
     "node": ">=22.5.0"
