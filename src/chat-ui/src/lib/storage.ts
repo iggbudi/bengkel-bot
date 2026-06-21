@@ -1,4 +1,5 @@
 const CHAT_ID_KEY = 'bengkelbot.chatId'
+const CHAT_TOKEN_KEY = 'bengkelbot.chatToken'
 const CUSTOMER_NAME_KEY = 'bengkelbot.customerName'
 
 function generateId(): string {
@@ -17,6 +18,15 @@ export function getChatId(): string {
 
 export function setChatId(id: string): void {
   localStorage.setItem(CHAT_ID_KEY, id)
+  localStorage.removeItem(CHAT_TOKEN_KEY)
+}
+
+export function getChatToken(): string {
+  return localStorage.getItem(CHAT_TOKEN_KEY)?.trim() || ''
+}
+
+export function setChatToken(token: string): void {
+  localStorage.setItem(CHAT_TOKEN_KEY, token)
 }
 
 export function getCustomerName(): string {

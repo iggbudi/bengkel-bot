@@ -24,10 +24,25 @@ function cleanExpired(): void {
   }
 }
 
+const DEFAULT_ADMIN_PASSWORD = 'Unisbank1920'
+
 export function getAdminCredentials(): { username: string; password: string } {
   return {
     username: process.env.ADMIN_USERNAME ?? 'admin',
-    password: process.env.ADMIN_PASSWORD ?? 'Unisbank1920',
+    password: process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD,
+  }
+}
+
+export function isDefaultAdminPassword(): boolean {
+  const password = process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD
+  return password === DEFAULT_ADMIN_PASSWORD
+}
+
+export function warnIfInsecureAdminCredentials(): void {
+  if (process.env.NODE_ENV === 'production' && isDefaultAdminPassword()) {
+    console.warn(
+      '[SECURITY] ADMIN_PASSWORD masih default — segera set password kuat di .env',
+    )
   }
 }
 

@@ -15,6 +15,7 @@ import {
   setSessionCookie,
   clearSessionCookie,
   requireAuth,
+  warnIfInsecureAdminCredentials,
 } from '../admin/auth.js'
 import { getKbNames, readKb, writeKb, KB_FILES } from '../admin/kb.js'
 import { listBookings, updateBookingStatus } from '../admin/bookings.js'
@@ -25,8 +26,15 @@ import { existsSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
-import { ConversationRepo, getDb, type DbBooking } from '../db/schema.js'
+import { ConversationRepo, getDb } from '../db/schema.js'
 import { BengkelBot, createBotConfigFromEnv } from '../bot/agent.js'
+import {
+  createChatToken,
+  verifyChatToken,
+  warnIfInsecureChatSecret,
+} from './chat-auth.js'
+import { parseChatInput, validateChatId } from './chat-validation.js'
+import { applyRateLimit, getChatRateLimit, getTokenRateLimit } from './rate-limit.js'
 
 loadEnv({ override: true })
 
@@ -127,12 +135,34 @@ async function main(): Promise<void> {
         return
       }
 
-      if (req.method === 'GET' && url.pathname === '/api/chat/history') {
-        const chatId = url.searchParams.get('chatId')?.trim()
+      if (req.method === 'GET' && url.pathname === '/api/chat/token') {
+        if (!applyRateLimit(req, res, getTokenRateLimit())) return
+
+        const chatId = validateChatId(url.searchParams.get('chatId'))
         if (!chatId) {
-          json(res, 400, { error: 'chatId wajib diisi' })
+          json(res, 400, { error: 'chatId tidak valid' })
           return
         }
+
+        json(res, 200, { chatId, chatToken: createChatToken(chatId) })
+        return
+      }
+
+      if (req.method === 'GET' && url.pathname === '/api/chat/history') {
+        if (!applyRateLimit(req, res, getChatRateLimit())) return
+
+        const chatId = validateChatId(url.searchParams.get('chatId'))
+        const chatToken = url.searchParams.get('chatToken')?.trim()
+
+        if (!chatId) {
+          json(res, 400, { error: 'chatId tidak valid' })
+          return
+        }
+        if (!verifyChatToken(chatId, chatToken)) {
+          json(res, 401, { error: 'chatToken tidak valid' })
+          return
+        }
+
         const raw = ConversationRepo.getMessages(`web:${chatId}`, 'web') as Array<{
           role: string
           content: string
@@ -143,6 +173,8 @@ async function main(): Promise<void> {
 
       // SSE streaming chat endpoint
       if (req.method === 'GET' && url.pathname === '/api/chat') {
+        if (!applyRateLimit(req, res, getChatRateLimit())) return
+
         const configError = validateLlmConfig()
         if (configError) {
           res.writeHead(400, { 'Content-Type': 'application/json' })
@@ -150,14 +182,24 @@ async function main(): Promise<void> {
           return
         }
 
-        const chatId = url.searchParams.get('chatId')?.trim() || 'web-local'
-        const customerName = url.searchParams.get('customerName')?.trim() || 'Web Tester'
-        const message = url.searchParams.get('message')?.trim()
-        if (!message) {
+        const chatToken = url.searchParams.get('chatToken')?.trim()
+        const parsed = parseChatInput(
+          url.searchParams.get('chatId'),
+          url.searchParams.get('customerName'),
+          url.searchParams.get('message'),
+        )
+        if (!parsed.ok) {
           res.writeHead(400, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'message wajib diisi' }))
+          res.end(JSON.stringify({ error: parsed.error }))
           return
         }
+        if (!verifyChatToken(parsed.data.chatId, chatToken)) {
+          res.writeHead(401, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'chatToken tidak valid' }))
+          return
+        }
+
+        const { chatId, customerName, message } = parsed.data
 
         res.writeHead(200, {
           'Content-Type': 'text/event-stream; charset=utf-8',
@@ -193,6 +235,8 @@ async function main(): Promise<void> {
 
       // JSON fallback for legacy/WhatsApp-style call
       if (req.method === 'POST' && url.pathname === '/api/chat') {
+        if (!applyRateLimit(req, res, getChatRateLimit())) return
+
         const configError = validateLlmConfig()
         if (configError) {
           json(res, 400, { error: configError })
@@ -204,16 +248,20 @@ async function main(): Promise<void> {
           message?: string
           chatId?: string
           customerName?: string
+          chatToken?: string
         }
 
-        const message = body.message?.trim()
-        if (!message) {
-          json(res, 400, { error: 'Message wajib diisi' })
+        const parsed = parseChatInput(body.chatId, body.customerName, body.message)
+        if (!parsed.ok) {
+          json(res, 400, { error: parsed.error })
+          return
+        }
+        if (!verifyChatToken(parsed.data.chatId, body.chatToken?.trim())) {
+          json(res, 401, { error: 'chatToken tidak valid' })
           return
         }
 
-        const chatId = body.chatId?.trim() || 'web-local'
-        const customerName = body.customerName?.trim() || 'Web Tester'
+        const { chatId, customerName, message } = parsed.data
         const reply = await bot.processMessage(`web:${chatId}`, customerName, message)
         json(res, 200, { reply })
         return
@@ -392,10 +440,14 @@ async function main(): Promise<void> {
 
       json(res, 405, { error: 'Method not allowed' })
     } catch (err) {
-      console.error('[WEB] Error:', err)
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[WEB] Error:', msg)
       json(res, 500, { error: 'Maaf, ada gangguan teknis. Cek terminal server untuk detail.' })
     }
   })
+
+  warnIfInsecureAdminCredentials()
+  warnIfInsecureChatSecret()
 
   server.listen(PORT, HOST, () => {
     console.log('🔧 BengkelBot Web MVP')

@@ -1,7 +1,13 @@
 import { useReducer, useRef, useCallback } from 'react'
 import type { Message, ServerMessage } from '../types'
-import { fetchHistory, streamChat } from '../lib/api'
-import { getChatId, setChatId, getCustomerName } from '../lib/storage'
+import { fetchChatToken, fetchHistory, streamChat } from '../lib/api'
+import {
+  getChatId,
+  setChatId,
+  getChatToken,
+  setChatToken,
+  getCustomerName,
+} from '../lib/storage'
 
 interface ChatState {
   messages: Message[]
@@ -127,16 +133,25 @@ export function useChat() {
   const chatIdRef = useRef(getChatId())
   const closeStreamRef = useRef<(() => void) | null>(null)
 
+  const ensureChatToken = useCallback(async (): Promise<string> => {
+    let token = getChatToken()
+    if (token) return token
+    token = await fetchChatToken(chatIdRef.current)
+    setChatToken(token)
+    return token
+  }, [])
+
   const syncHistory = useCallback(async () => {
     dispatch({ type: 'SYNC_START' })
     try {
-      const raw = await fetchHistory(chatIdRef.current)
+      const token = await ensureChatToken()
+      const raw = await fetchHistory(chatIdRef.current, token)
       const messages = raw.map(normalizeServerMessage)
       dispatch({ type: 'SYNC_DONE', messages })
     } catch {
       dispatch({ type: 'SYNC_DONE', messages: [] })
     }
-  }, [])
+  }, [ensureChatToken])
 
   const sendMessage = useCallback(async (text: string) => {
     const userMessage: Message = {
@@ -150,8 +165,20 @@ export function useChat() {
 
     const customerName = getCustomerName() || 'Pelanggan'
 
+    let chatToken: string
+    try {
+      chatToken = await ensureChatToken()
+    } catch {
+      dispatch({
+        type: 'STREAM_ERROR',
+        text: 'Gagal memulai sesi chat. Muat ulang halaman.',
+      })
+      return
+    }
+
     closeStreamRef.current = streamChat(
       chatIdRef.current,
+      chatToken,
       customerName,
       text,
       {
@@ -161,7 +188,7 @@ export function useChat() {
         onError: (err: string) => dispatch({ type: 'STREAM_ERROR', text: err }),
       },
     )
-  }, [])
+  }, [ensureChatToken])
 
   const startNewSession = useCallback(() => {
     if (closeStreamRef.current) {

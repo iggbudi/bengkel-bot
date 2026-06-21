@@ -272,10 +272,11 @@ repo/
 ### 4.2 Alur Streaming (Web UI)
 
 ```
-1. Browser buka /api/chat?chatId=xxx&message=xxx (GET → SSE)
-2. Server set headers: text/event-stream
-3. Kirim event: start
-4. BengkelBot.processMessageStream() dipanggil
+1. Browser minta token: `GET /api/chat/token?chatId=xxx`
+2. Browser buka `/api/chat?chatId=xxx&chatToken=yyy&message=zzz` (GET → SSE)
+3. Server set headers: text/event-stream
+4. Kirim event: start
+5. BengkelBot.processMessageStream() dipanggil
 5. Di setiap delta dari LLM → kirim event: delta {delta, text}
 6. Saat selesai → kirim event: done {text}
 7. Browser update bubble chat secara real-time
@@ -556,8 +557,10 @@ LLM uses result to compose final answer to customer
 - Publik via Apache reverse proxy: `https://cmaestro.my.id`
 - Endpoints:
   - `GET /api/health` — health check
-  - `GET /api/chat?message=...&chatId=...` — SSE streaming chat
-  - `POST /api/chat` — JSON fallback chat
+  - `GET /api/chat/token?chatId=...` — Dapatkan HMAC chat token
+  - `GET /api/chat/history?chatId=...&chatToken=...` — Riwayat chat (butuh token)
+  - `GET /api/chat?message=...&chatId=...&chatToken=...` — SSE streaming chat
+  - `POST /api/chat` — JSON fallback chat (butuh chatToken)
 - Static files dari `public/`
 - Chat UI: dark theme, markdown rendering, localStorage history
 
@@ -577,9 +580,11 @@ Akses:
 
 ### Login
 
+Atur credential via `.env`:
+
 ```env
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=Unisbank1920
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_secure_password
 ```
 
 ### Fitur
@@ -634,7 +639,19 @@ ADMIN_PASSWORD=Unisbank1920
 }
 ```
 
-#### `GET /api/chat?message=...&chatId=...&customerName=...` (SSE)
+#### `GET /api/chat/token?chatId=...`
+
+```json
+{ "chatId": "uuid", "chatToken": "base64url-hmac" }
+```
+
+#### `GET /api/chat/history?chatId=...&chatToken=...`
+
+Memerlukan `chatToken` valid. Return 401 jika token salah.
+
+#### `GET /api/chat?message=...&chatId=...&chatToken=...&customerName=...` (SSE)
+
+Memerlukan `chatToken` valid. Rate limited per IP.
 
 Events:
 - `event: start` → `{"ok": true}`
@@ -646,7 +663,7 @@ Events:
 
 ```json
 // Request
-{ "message": "Service completo berapa?", "chatId": "xxx", "customerName": "Budi" }
+{ "message": "Service completo berapa?", "chatId": "xxx", "chatToken": "yyy", "customerName": "Budi" }
 
 // Response
 { "reply": "Service completo di bengkel kami..." }
@@ -708,8 +725,11 @@ Status valid: `pending`, `approved`, `in_progress`, `done`, `cancelled`
 
 | Variable | Default | Keterangan |
 |----------|---------|------------|
-| `ADMIN_USERNAME` | admin | Username admin dashboard |
-| `ADMIN_PASSWORD` | Unisbank1920 | Password admin dashboard |
+| `ADMIN_USERNAME` | — | Username admin dashboard (wajib diset) |
+| `ADMIN_PASSWORD` | — | Password admin dashboard (wajib diset, gunakan password kuat) |
+| `CHAT_SECRET` | — | Secret HMAC untuk chat token (wajib di production) |
+| `RATE_LIMIT_CHAT_PER_MIN` | 20 | Max request chat per IP per menit |
+| `RATE_LIMIT_TOKEN_PER_MIN` | 30 | Max request token per IP per menit |
 
 ---
 

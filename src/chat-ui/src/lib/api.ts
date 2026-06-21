@@ -6,8 +6,20 @@ export async function fetchHealth(): Promise<HealthData> {
   return res.json()
 }
 
-export async function fetchHistory(chatId: string): Promise<ServerMessage[]> {
-  const res = await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}`)
+export async function fetchChatToken(chatId: string): Promise<string> {
+  const res = await fetch(`/api/chat/token?chatId=${encodeURIComponent(chatId)}`)
+  if (!res.ok) throw new Error('Gagal mendapatkan chat token')
+  const data = await res.json()
+  if (!data.chatToken) throw new Error('Token tidak tersedia')
+  return data.chatToken as string
+}
+
+export async function fetchHistory(
+  chatId: string,
+  chatToken: string,
+): Promise<ServerMessage[]> {
+  const params = new URLSearchParams({ chatId, chatToken })
+  const res = await fetch(`/api/chat/history?${params}`)
   if (!res.ok) return []
   const data = await res.json()
   return data.messages || []
@@ -22,11 +34,12 @@ export interface StreamCallbacks {
 
 export function streamChat(
   chatId: string,
+  chatToken: string,
   customerName: string,
   message: string,
   callbacks: StreamCallbacks,
 ): () => void {
-  const params = new URLSearchParams({ chatId, customerName, message })
+  const params = new URLSearchParams({ chatId, chatToken, customerName, message })
   const es = new EventSource(`/api/chat?${params}`)
 
   es.addEventListener('start', () => {
