@@ -4,10 +4,10 @@
 
 | Slang | Terjemahan | Contoh |
 |---|---|---|
-| wes / udh / udah | sudah | "wes service tapi masih bunyi" |
+| sampun / udh / udah | sudah | "wes service tapi masih bunyi" |
 | mas / bang | sapaan informal (pria) | "mas, mobil saya bunyi" |
 | mbak | sapaan informal (wanita) | "mbak, tune up berapa?" |
-| ndak / nggak / kagak | tidak | "ndak ada bunyi waktu rem" |
+| mboten / nggak / kagak | tidak | "ndak ada bunyi waktu rem" |
 | iso / bisa | bisa | "iso booking jam 9 pagi?" |
 | arep / mo h mau | akan / ingin | "arep service lengkap" |
 | ono / ada | ada | "ono bunyi dari depan" |
