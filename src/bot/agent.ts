@@ -212,10 +212,11 @@ export class BengkelBot {
         await this.escalate(chatId, customerName, message, 'whatsapp')
       }
 
+      const now = Date.now()
       const updatedHistory = [
         ...(history as Array<{ role: string; content: string }>),
-        { role: 'user', content: message },
-        { role: 'assistant', content: finalText },
+        { role: 'user', content: message, at: now },
+        { role: 'assistant', content: finalText, at: now },
       ]
       ConversationRepo.upsert({
         id: uuidv4(),
@@ -369,10 +370,11 @@ export class BengkelBot {
         await this.escalate(chatId, customerName, message, 'whatsapp')
       }
 
+      const now = Date.now()
       const updatedHistory = [
         ...(history as Array<{ role: string; content: string }>),
-        { role: 'user', content: message },
-        { role: 'assistant', content: finalText },
+        { role: 'user', content: message, at: now },
+        { role: 'assistant', content: finalText, at: now },
       ]
       ConversationRepo.upsert({
         id: uuidv4(),

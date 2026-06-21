@@ -10,7 +10,10 @@
     "web": "tsx src/web/server.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:init": "tsx src/db/init.ts"
+    "db:init": "tsx src/db/init.ts",
+    "chat:dev": "vite --config vite.chat.config.ts",
+    "chat:build": "vite build --config vite.chat.config.ts",
+    "build:all": "tsc && vite build --config vite.chat.config.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.79.1",
@@ -18,15 +21,23 @@
     "@earendil-works/pi-coding-agent": "^0.79.1",
     "@sinclair/typebox": "^0.34.49",
     "baileys": "^6.7.16",
+    "dompurify": "^3.2.3",
     "dotenv": "^16.4.7",
+    "marked": "^15.0.6",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "uuid": "^11.0.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vite": "^5.4.11"
   },
   "engines": {
     "node": ">=22.5.0"

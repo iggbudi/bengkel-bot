@@ -121,7 +121,7 @@ async function main(): Promise<void> {
       }
 
       if (req.method === 'GET' && url.pathname === '/chat') {
-        const content = await readFile(join(PUBLIC_DIR, 'chat.html'))
+        const content = await readFile(join(PUBLIC_DIR, 'chat', 'index.html'))
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
         res.end(content)
         return
