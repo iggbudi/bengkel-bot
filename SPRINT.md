@@ -112,18 +112,26 @@
 
 ---
 
-## Sprint 5 — Observability & Cost Control (P2)
+## Sprint 5 — Observability & Cost Control (P2) ✅
 
 **Durasi:** 3–4 hari  
-**Tujuan:** Pantau biaya LLM dan kesehatan sistem
+**Tujuan:** Pantau biaya LLM dan kesehatan sistem  
+**Status:** Selesai
 
-| # | Task | File/Area | Effort | Acceptance Criteria |
-|---|------|-----------|--------|---------------------|
-| 5.1 | Request logging terstruktur | `src/web/server.ts` | M | Log: chatId, duration, tokens (jika ada), status |
-| 5.2 | Metrics endpoint `/api/metrics` | baru | M | Total chat, error rate, avg latency (admin-only) |
-| 5.3 | Daily LLM usage counter | SQLite table baru | M | Hitung jumlah request/hari per channel |
-| 5.4 | Health check extended | `/api/health` | S | Tambah: DB ok, disk space, uptime |
-| 5.5 | Alert webhook (opsional) | env + script | S | Notifikasi jika health fail 3x berturut |
+| # | Task | File/Area | Effort | Status |
+|---|------|-----------|--------|--------|
+| 5.1 | Request logging terstruktur | `src/observability/request-log.ts` | M | ✅ |
+| 5.2 | Metrics endpoint admin | `GET /admin/api/metrics` | M | ✅ |
+| 5.3 | Daily LLM usage counter | `llm_usage_daily` table | M | ✅ |
+| 5.4 | Health check extended | `/api/health` | S | ✅ |
+| 5.5 | Alert webhook (opsional) | `alert.ts`, `scripts/health-check.sh` | S | ✅ |
+
+**Definition of Done:**
+- [x] Chat request JSON logs (chatId, duration, status)
+- [x] Admin metrics: requests, error rate, avg latency, 7-day history
+- [x] Daily usage per channel di SQLite
+- [x] Health: db, disk, uptime
+- [x] Webhook alert setelah 3x health fail (jika `ALERT_WEBHOOK_URL` diset)
 
 ---
 
@@ -149,7 +157,7 @@ Minggu 1–2   ██████████ Sprint 1 (P0 Security)        ✅
 Minggu 2–3   ████████████ Sprint 2 (P1 Stability)     ✅
 Minggu 4–5   ██████████████ Sprint 3 (P1 Testing)       ✅
 Minggu 6     ████████ Sprint 4 (P2 Admin)             ✅
-Minggu 7     ██████ Sprint 5 (P2 Observability)
+Minggu 7     ██████ Sprint 5 (P2 Observability)         ✅
 Minggu 8+    ████████████ Sprint 6 (P3 Architecture) — opsional
 ```
 

@@ -141,6 +141,27 @@ function initSchema(db: DatabaseSyncInstance): void {
 
     CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at);
     CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at);
+
+    CREATE TABLE IF NOT EXISTS llm_usage_daily (
+      date TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      requests INTEGER DEFAULT 0,
+      errors INTEGER DEFAULT 0,
+      total_duration_ms INTEGER DEFAULT 0,
+      PRIMARY KEY (date, channel)
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_request_log (
+      id TEXT PRIMARY KEY,
+      chat_id TEXT,
+      channel TEXT NOT NULL,
+      duration_ms INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('ok','error','timeout','aborted')),
+      error_message TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_request_log_created ON chat_request_log(created_at);
   `)
 }
 

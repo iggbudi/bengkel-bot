@@ -12,6 +12,7 @@ import { BengkelBot, createBotConfigFromEnv } from '../bot/agent.js'
 import { createWebApp, validateLlmConfig } from './app.js'
 import { initAdminAuth, warnIfInsecureAdminCredentials } from '../admin/auth.js'
 import { warnIfInsecureChatSecret } from './chat-auth.js'
+import { startHealthWatchdog } from '../observability/alert.js'
 
 loadEnv({ override: true })
 
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
 
   warnIfInsecureAdminCredentials()
   warnIfInsecureChatSecret()
+  startHealthWatchdog()
 
   server.listen(PORT, HOST, () => {
     console.log('🔧 BengkelBot Web MVP')

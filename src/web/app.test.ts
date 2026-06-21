@@ -74,6 +74,9 @@ describe('chat API integration', () => {
     expect(res.status).toBe(200)
     expect(body.ok).toBe(true)
     expect(body.workshop).toBe('Test Workshop')
+    expect(body.db?.ok).toBe(true)
+    expect(body.uptime?.seconds).toBeGreaterThanOrEqual(0)
+    expect(body.disk).toHaveProperty('freeMb')
 
     await close()
   })

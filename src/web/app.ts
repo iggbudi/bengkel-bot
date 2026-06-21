@@ -34,6 +34,10 @@ import {
 import { parseChatInput, validateChatId } from './chat-validation.js'
 import { applyRateLimit, getChatRateLimit, getTokenRateLimit } from './rate-limit.js'
 import { isLlmTimeoutError } from '../bot/llm-timeout.js'
+import { validateLlmConfig } from '../config/validate-llm.js'
+import { getExtendedHealth } from '../observability/health.js'
+import { recordChatRequest, getChatMetrics } from '../observability/metrics.js'
+import type { ChatRequestStatus } from '../observability/request-log.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = join(__dirname, '../..')
@@ -66,19 +70,7 @@ function json(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body))
 }
 
-export function validateLlmConfig(): string | null {
-  const provider = process.env.LLM_PROVIDER ?? 'openai'
-
-  if (provider === 'openai' && (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your_'))) {
-    return 'OPENAI_API_KEY belum diset di .env'
-  }
-
-  if (provider === 'sumopod' && (!process.env.SUMOPOD_API_KEY || process.env.SUMOPOD_API_KEY.includes('your_'))) {
-    return 'SUMOPOD_API_KEY belum diset di .env'
-  }
-
-  return null
-}
+export { validateLlmConfig } from '../config/validate-llm.js'
 
 async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = []
@@ -114,9 +106,10 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
 
       if (req.method === 'GET' && url.pathname === '/api/health') {
+        const extended = getExtendedHealth()
         json(res, 200, {
-          ok: validateLlmConfig() === null,
-          configError: validateLlmConfig(),
+          ok: extended.ok,
+          configError: extended.configError,
           bot: config.botName,
           workshop: config.workshopName,
           tagline: process.env.BOT_TAGLINE ?? 'Asisten pintar bengkel mobil Anda',
@@ -126,6 +119,9 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
           workshopDays: config.workshopDays,
           workshopSpec: config.workshopSpec,
           llm: bot.getLlmDescription(),
+          db: extended.db,
+          disk: extended.disk,
+          uptime: extended.uptime,
         })
         return
       }
@@ -218,25 +214,47 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
 
         send('start', { ok: true })
 
+        const chatStarted = Date.now()
+        const fullChatId = `web:${chatId}`
+        let streamStatus: ChatRequestStatus = 'aborted'
+        let streamError: string | undefined
+
         try {
+          let completed = false
           await Promise.race([
-            bot.processMessageStream(`web:${chatId}`, customerName, message, (delta, accumulated) => {
-              send('delta', { delta, text: accumulated })
-            }).then((finalText) => {
-              send('done', { text: finalText })
-              res.end()
-            }),
+            bot
+              .processMessageStream(fullChatId, customerName, message, (delta, accumulated) => {
+                send('delta', { delta, text: accumulated })
+              })
+              .then((finalText) => {
+                completed = true
+                streamStatus = 'ok'
+                send('done', { text: finalText })
+                res.end()
+              }),
             reqAbort,
           ])
+          if (!completed && !res.writableEnded) {
+            streamStatus = 'aborted'
+            res.end()
+          }
         } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : 'Maaf, ada gangguan teknis.'
+          const errMsg = err instanceof Error ? err.message : 'Maaf, ada gangguan teknis.'
+          streamStatus = isLlmTimeoutError(err) ? 'timeout' : 'error'
+          streamError = errMsg
           send('error', {
-            error: isLlmTimeoutError(err)
-              ? message
-              : message || 'Maaf, ada gangguan teknis.',
+            error: isLlmTimeoutError(err) ? errMsg : errMsg || 'Maaf, ada gangguan teknis.',
             timeout: isLlmTimeoutError(err),
           })
           res.end()
+        } finally {
+          recordChatRequest({
+            chatId: fullChatId,
+            channel: 'web',
+            durationMs: Date.now() - chatStarted,
+            status: streamStatus,
+            errorMessage: streamError,
+          })
         }
         return
       }
@@ -270,12 +288,28 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
         }
 
         const { chatId, customerName, message } = parsed.data
+        const fullChatId = `web:${chatId}`
+        const chatStarted = Date.now()
         try {
-          const reply = await bot.processMessage(`web:${chatId}`, customerName, message)
+          const reply = await bot.processMessage(fullChatId, customerName, message)
+          recordChatRequest({
+            chatId: fullChatId,
+            channel: 'web',
+            durationMs: Date.now() - chatStarted,
+            status: 'ok',
+          })
           json(res, 200, { reply })
         } catch (err: unknown) {
-          const status = isLlmTimeoutError(err) ? 504 : 500
           const errorMsg = err instanceof Error ? err.message : 'Maaf, ada gangguan teknis.'
+          const reqStatus: ChatRequestStatus = isLlmTimeoutError(err) ? 'timeout' : 'error'
+          recordChatRequest({
+            chatId: fullChatId,
+            channel: 'web',
+            durationMs: Date.now() - chatStarted,
+            status: reqStatus,
+            errorMessage: errorMsg,
+          })
+          const status = isLlmTimeoutError(err) ? 504 : 500
           json(res, status, { error: errorMsg, timeout: isLlmTimeoutError(err) })
         }
         return
@@ -295,6 +329,12 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
         } else {
           json(res, 401, { error: 'Username atau password salah' })
         }
+        return
+      }
+
+      if (req.method === 'GET' && url.pathname === '/admin/api/metrics') {
+        if (!requireAuth(req, res)) return
+        json(res, 200, getChatMetrics())
         return
       }
 
