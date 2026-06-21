@@ -5,18 +5,19 @@
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import {
-  getAdminCredentials,
   createSession,
   getSession,
   destroySession,
   setSessionCookie,
   clearSessionCookie,
   requireAuth,
-  warnIfInsecureAdminCredentials,
+  requireAuthWithCsrf,
+  verifyAdminLogin,
 } from '../admin/auth.js'
+import { logAdminAction } from '../admin/audit.js'
 import { getKbNames, readKb, writeKb, KB_FILES } from '../admin/kb.js'
 import { listBookings, updateBookingStatus } from '../admin/bookings.js'
-import { readSettings, writeSettings } from '../admin/settings.js'
+import { readSettings, readMaskedSecrets, writeSettings } from '../admin/settings.js'
 import { listConversations, getConversation, getSessionStats } from '../admin/conversations.js'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -285,19 +286,32 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
       if (req.method === 'POST' && url.pathname === '/admin/api/login') {
         const raw = await readBody(req)
         const { username, password } = JSON.parse(raw || '{}') as { username?: string; password?: string }
-        const creds = getAdminCredentials()
 
-        if (username === creds.username && password === creds.password) {
+        if (username && password && (await verifyAdminLogin(username, password))) {
           const session = createSession(username)
           setSessionCookie(res, session, req)
-          json(res, 200, { ok: true })
+          logAdminAction(username, 'login')
+          json(res, 200, { ok: true, csrfToken: session.csrfToken })
         } else {
           json(res, 401, { error: 'Username atau password salah' })
         }
         return
       }
 
+      if (req.method === 'GET' && url.pathname === '/admin/api/session') {
+        const session = requireAuth(req, res)
+        if (!session) return
+        json(res, 200, {
+          ok: true,
+          username: session.username,
+          csrfToken: session.csrfToken,
+        })
+        return
+      }
+
       if (req.method === 'GET' && url.pathname === '/admin/api/logout') {
+        const session = getSession(req)
+        if (session) logAdminAction(session.username, 'logout')
         destroySession(req)
         clearSessionCookie(res, req)
         res.writeHead(302, { Location: '/admin/login' })
@@ -323,7 +337,8 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
       }
 
       if (req.method === 'PUT' && url.pathname.startsWith('/admin/api/kb/')) {
-        if (!requireAuth(req, res)) return
+        const session = requireAuthWithCsrf(req, res)
+        if (!session) return
         const name = url.pathname.split('/').pop()!
         const raw = await readBody(req)
         const { content } = JSON.parse(raw || '{}') as { content?: string }
@@ -332,6 +347,7 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
           return
         }
         const result = await writeKb(name, content)
+        if (result.ok) logAdminAction(session.username, 'kb.update', name)
         json(res, result.ok ? 200 : 400, result)
         return
       }
@@ -344,7 +360,8 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
       }
 
       if (req.method === 'PUT' && url.pathname.match(/^\/admin\/api\/bookings\/[a-f0-9-]+$/)) {
-        if (!requireAuth(req, res)) return
+        const session = requireAuthWithCsrf(req, res)
+        if (!session) return
         const id = url.pathname.split('/').pop()!
         const raw = await readBody(req)
         const { status, notes } = JSON.parse(raw || '{}') as { status?: string; notes?: string }
@@ -353,6 +370,7 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
           return
         }
         const result = updateBookingStatus(id, status as any, notes)
+        if (result.ok) logAdminAction(session.username, 'booking.update', `${id} → ${status}`)
         json(res, result.ok ? 200 : 400, result)
         return
       }
@@ -387,15 +405,18 @@ export function createWebApp(config: BotConfig, bot: WebAppBot): Server {
       if (req.method === 'GET' && url.pathname === '/admin/api/settings') {
         if (!requireAuth(req, res)) return
         const settings = await readSettings()
-        json(res, 200, { settings })
+        const secrets = readMaskedSecrets()
+        json(res, 200, { settings, secrets })
         return
       }
 
       if (req.method === 'PUT' && url.pathname === '/admin/api/settings') {
-        if (!requireAuth(req, res)) return
+        const session = requireAuthWithCsrf(req, res)
+        if (!session) return
         const raw = await readBody(req)
         const updates = JSON.parse(raw || '{}') as Record<string, string>
         const result = await writeSettings(updates)
+        if (result.ok) logAdminAction(session.username, 'settings.update')
         json(res, result.ok ? 200 : 400, result)
         return
       }

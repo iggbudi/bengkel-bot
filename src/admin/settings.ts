@@ -28,6 +28,23 @@ const EDITABLE_KEYS = [
 
 export type SettingsMap = Record<string, string>
 
+const SECRET_KEYS = ['OPENAI_API_KEY', 'SUMOPOD_API_KEY', 'CHAT_SECRET'] as const
+
+export function maskSecret(value: string | undefined): string {
+  const v = value?.trim() ?? ''
+  if (!v || v.includes('your_')) return '(belum diset)'
+  if (v.length <= 8) return '***'
+  return `${v.slice(0, 3)}***...***${v.slice(-4)}`
+}
+
+export function readMaskedSecrets(): Record<string, string> {
+  const secrets: Record<string, string> = {}
+  for (const key of SECRET_KEYS) {
+    secrets[key] = maskSecret(process.env[key])
+  }
+  return secrets
+}
+
 export async function readSettings(): Promise<SettingsMap> {
   const env: SettingsMap = {}
   for (const key of EDITABLE_KEYS) {

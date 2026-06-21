@@ -88,15 +88,46 @@ function toast(message, type = 'success') {
 
 // ── API Helpers ──────────────────────────────────────────
 
+const CSRF_KEY = 'bengkelbot.admin.csrf'
+let csrfToken = sessionStorage.getItem(CSRF_KEY) || ''
+
+async function ensureCsrfToken() {
+  if (csrfToken) return csrfToken
+  const data = await fetch('/admin/api/session', { credentials: 'same-origin' }).then((r) => {
+    if (r.status === 401) {
+      window.location.href = '/admin/login'
+      throw new Error('Session expired')
+    }
+    return r.json()
+  })
+  csrfToken = data.csrfToken || ''
+  if (csrfToken) sessionStorage.setItem(CSRF_KEY, csrfToken)
+  return csrfToken
+}
+
 async function api(path, options = {}) {
+  const method = (options.method || 'GET').toUpperCase()
+  const headers = { 'Content-Type': 'application/json', ...options.headers }
+
+  if (method !== 'GET' && method !== 'HEAD') {
+    headers['X-CSRF-Token'] = await ensureCsrfToken()
+  }
+
   const res = await fetch(`/admin/api${path}`, {
     credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
+    headers,
     ...options,
   })
   if (res.status === 401 || res.status === 302) {
+    sessionStorage.removeItem(CSRF_KEY)
     window.location.href = '/admin/login'
     throw new Error('Session expired')
+  }
+  if (res.status === 403) {
+    sessionStorage.removeItem(CSRF_KEY)
+    csrfToken = ''
+    await ensureCsrfToken()
+    throw new Error('CSRF token expired — muat ulang halaman')
   }
   return res.json()
 }
@@ -625,6 +656,7 @@ async function loadSettingsPage() {
 
   const data = await api('/settings')
   const settings = data.settings || {}
+  const secrets = data.secrets || {}
 
   const fields = [
     { key: 'WORKSHOP_NAME', label: 'Nama Bengkel' },
@@ -649,6 +681,20 @@ async function loadSettingsPage() {
         <div class="form-group">
           <label for="setting-${f.key}">${f.label} <span style="color:var(--muted);font-weight:400;font-size:12px">(${f.key})</span></label>
           <input type="text" id="setting-${f.key}" data-key="${f.key}" value="${escAttr(settings[f.key] || '')}" />
+        </div>
+      `,
+        )
+        .join('')}
+    </div>
+    <div class="card settings-card" style="max-width:640px;margin-top:16px">
+      <div class="card-header"><h3>API Keys (read-only)</h3></div>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 12px">Nilai disensor — edit langsung di file <code>.env</code> di server.</p>
+      ${Object.entries(secrets)
+        .map(
+          ([key, masked]) => `
+        <div class="form-group">
+          <label>${key}</label>
+          <input type="text" value="${escAttr(masked)}" readonly style="opacity:0.85;font-family:monospace" />
         </div>
       `,
         )
@@ -720,4 +766,5 @@ async function applyBranding() {
 // ── Init ─────────────────────────────────────────────────
 
 applyBranding()
+ensureCsrfToken().catch(() => {})
 loadPage(getHash())

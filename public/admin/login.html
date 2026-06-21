@@ -52,6 +52,10 @@
       })
 
       if (res.ok) {
+        const data = await res.json()
+        if (data.csrfToken) {
+          sessionStorage.setItem('bengkelbot.admin.csrf', data.csrfToken)
+        }
         window.location.href = '/admin'
       } else {
         const data = await res.json()

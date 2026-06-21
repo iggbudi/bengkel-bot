@@ -13,6 +13,7 @@
     "start:web": "node dist/web/server.js",
     "deploy": "npm test && npm run build:all && pm2 startOrReload ecosystem.config.cjs",
     "db:init": "tsx src/db/init.ts",
+    "admin:hash-password": "tsx src/admin/hash-password.ts",
     "chat:dev": "vite --config vite.chat.config.ts",
     "chat:build": "vite build --config vite.chat.config.ts",
     "build:all": "tsc && vite build --config vite.chat.config.ts",
@@ -25,6 +26,7 @@
     "@earendil-works/pi-coding-agent": "^0.79.1",
     "@sinclair/typebox": "^0.34.49",
     "baileys": "^6.7.16",
+    "bcryptjs": "^3.0.3",
     "dompurify": "^3.2.3",
     "dotenv": "^16.4.7",
     "marked": "^15.0.6",
@@ -34,6 +36,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

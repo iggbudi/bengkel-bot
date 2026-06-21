@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { getDb } from '../db/schema.js'
 import { BengkelBot, createBotConfigFromEnv } from '../bot/agent.js'
 import { createWebApp, validateLlmConfig } from './app.js'
-import { warnIfInsecureAdminCredentials } from '../admin/auth.js'
+import { initAdminAuth, warnIfInsecureAdminCredentials } from '../admin/auth.js'
 import { warnIfInsecureChatSecret } from './chat-auth.js'
 
 loadEnv({ override: true })
@@ -20,6 +20,7 @@ const HOST = process.env.WEB_HOST ?? '127.0.0.1'
 
 async function main(): Promise<void> {
   getDb()
+  initAdminAuth()
   const config = createBotConfigFromEnv()
   const bot = new BengkelBot(config)
   const server = createWebApp(config, bot)

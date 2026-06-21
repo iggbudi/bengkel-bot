@@ -1,78 +1,46 @@
 /**
- * Admin Authentication & Session Management
- * -------------------------------------------
- * Simple cookie-based session with in-memory store.
+ * Admin Authentication — cookie helpers + session/CSRF gate.
  */
 
-import { randomUUID } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import {
+  createSession,
+  deleteSession,
+  getSessionById,
+  pruneExpiredSessions,
+  verifyCsrfToken,
+  type AdminSession,
+} from './sessions.js'
 
-export interface AdminSession {
-  id: string
-  username: string
-  createdAt: number
-}
+export type { AdminSession } from './sessions.js'
+export {
+  warnIfInsecureAdminCredentials,
+  verifyAdminLogin,
+  hashAdminPassword,
+  getAdminUsername,
+} from './password.js'
 
-const SESSION_TTL = 24 * 60 * 60 * 1000 // 24 hours
-const sessions = new Map<string, AdminSession>()
 const COOKIE_NAME = 'bengkelbot.sid'
 
-function cleanExpired(): void {
-  const now = Date.now()
-  for (const [id, session] of sessions) {
-    if (now - session.createdAt > SESSION_TTL) sessions.delete(id)
-  }
+export function initAdminAuth(): void {
+  pruneExpiredSessions()
 }
 
-const DEFAULT_ADMIN_PASSWORD = 'Unisbank1920'
-
-export function getAdminCredentials(): { username: string; password: string } {
-  return {
-    username: process.env.ADMIN_USERNAME ?? 'admin',
-    password: process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD,
-  }
-}
-
-export function isDefaultAdminPassword(): boolean {
-  const password = process.env.ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD
-  return password === DEFAULT_ADMIN_PASSWORD
-}
-
-export function warnIfInsecureAdminCredentials(): void {
-  if (process.env.NODE_ENV === 'production' && isDefaultAdminPassword()) {
-    console.warn(
-      '[SECURITY] ADMIN_PASSWORD masih default — segera set password kuat di .env',
-    )
-  }
-}
-
-export function createSession(username: string): AdminSession {
-  cleanExpired()
-  const session: AdminSession = {
-    id: randomUUID(),
-    username,
-    createdAt: Date.now(),
-  }
-  sessions.set(session.id, session)
-  return session
+function parseSessionId(req: IncomingMessage): string | null {
+  const cookie = req.headers.cookie ?? ''
+  const match = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`))
+  return match?.[1] ?? null
 }
 
 export function getSession(req: IncomingMessage): AdminSession | null {
-  const cookie = req.headers.cookie ?? ''
-  const match = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`))
-  if (!match) return null
-  const session = sessions.get(match[1])
-  if (!session || Date.now() - session.createdAt > SESSION_TTL) {
-    if (session) sessions.delete(match[1])
-    return null
-  }
-  return session
+  const id = parseSessionId(req)
+  if (!id) return null
+  return getSessionById(id)
 }
 
 export function destroySession(req: IncomingMessage): void {
-  const cookie = req.headers.cookie ?? ''
-  const match = cookie.match(new RegExp(`${COOKIE_NAME}=([^;]+)`))
-  if (match) sessions.delete(match[1])
+  const id = parseSessionId(req)
+  if (id) deleteSession(id)
 }
 
 function isSecureRequest(req: IncomingMessage): boolean {
@@ -86,12 +54,23 @@ function buildCookie(value: string, req: IncomingMessage, maxAge: number): strin
   return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax${secure}; Max-Age=${maxAge}`
 }
 
-export function setSessionCookie(res: ServerResponse, session: AdminSession, req: IncomingMessage): void {
-  res.setHeader('Set-Cookie', buildCookie(session.id, req, SESSION_TTL / 1000))
+export function setSessionCookie(
+  res: ServerResponse,
+  session: AdminSession,
+  req: IncomingMessage,
+): void {
+  const maxAge = Math.max(0, Math.floor((session.expiresAt - Date.now()) / 1000))
+  res.setHeader('Set-Cookie', buildCookie(session.id, req, maxAge))
 }
 
 export function clearSessionCookie(res: ServerResponse, req: IncomingMessage): void {
   res.setHeader('Set-Cookie', buildCookie('', req, 0))
+}
+
+export function getCsrfTokenFromRequest(req: IncomingMessage): string | null {
+  const header = req.headers['x-csrf-token']
+  if (typeof header === 'string' && header.trim()) return header.trim()
+  return null
 }
 
 export function requireAuth(req: IncomingMessage, res: ServerResponse): AdminSession | null {
@@ -109,3 +88,22 @@ export function requireAuth(req: IncomingMessage, res: ServerResponse): AdminSes
   }
   return session
 }
+
+export function requireAuthWithCsrf(
+  req: IncomingMessage,
+  res: ServerResponse,
+): AdminSession | null {
+  const session = requireAuth(req, res)
+  if (!session) return null
+
+  const csrf = getCsrfTokenFromRequest(req)
+  if (!verifyCsrfToken(session, csrf)) {
+    res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' })
+    res.end(JSON.stringify({ error: 'CSRF token tidak valid' }))
+    return null
+  }
+
+  return session
+}
+
+export { createSession }

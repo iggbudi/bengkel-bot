@@ -89,18 +89,26 @@
 
 ---
 
-## Sprint 4 — Admin & Session (P2)
+## Sprint 4 — Admin & Session (P2) ✅
 
 **Durasi:** 4–5 hari  
-**Tujuan:** Admin dashboard lebih andal di produksi
+**Tujuan:** Admin dashboard lebih andal di produksi  
+**Status:** Selesai
 
-| # | Task | File/Area | Effort | Acceptance Criteria |
-|---|------|-----------|--------|---------------------|
-| 4.1 | Persist admin session ke SQLite/file | `src/admin/auth.ts` | M | Login survive PM2 restart |
-| 4.2 | Hash password admin (bcrypt) | `src/admin/auth.ts` | M | Password tidak plain-text compare |
-| 4.3 | CSRF token untuk admin mutating API | `src/admin/`, `public/admin/` | M | PUT/POST admin butuh token valid |
-| 4.4 | Audit log admin actions | `src/admin/` | M | Log: login, edit KB, update booking, edit settings |
-| 4.5 | Mask API keys di settings UI | `public/admin/app.js` | S | Key ditampilkan sebagai `sk-***...***` |
+| # | Task | File/Area | Effort | Status |
+|---|------|-----------|--------|--------|
+| 4.1 | Persist admin session ke SQLite | `src/admin/sessions.ts` | M | ✅ |
+| 4.2 | Hash password admin (bcrypt) | `src/admin/password.ts` | M | ✅ |
+| 4.3 | CSRF token untuk admin mutating API | `auth.ts`, `public/admin/` | M | ✅ |
+| 4.4 | Audit log admin actions | `src/admin/audit.ts` | M | ✅ |
+| 4.5 | Mask API keys di settings UI | `settings.ts`, `app.js` | S | ✅ |
+
+**Definition of Done:**
+- [x] Session admin survive PM2 restart (SQLite `admin_sessions`)
+- [x] `ADMIN_PASSWORD_HASH` bcrypt + `npm run admin:hash-password`
+- [x] PUT admin API butuh `X-CSRF-Token`
+- [x] Audit log: login, logout, kb, booking, settings
+- [x] API keys ditampilkan masked di Settings
 
 ---
 
@@ -140,7 +148,7 @@
 Minggu 1–2   ██████████ Sprint 1 (P0 Security)        ✅
 Minggu 2–3   ████████████ Sprint 2 (P1 Stability)     ✅
 Minggu 4–5   ██████████████ Sprint 3 (P1 Testing)       ✅
-Minggu 6     ████████ Sprint 4 (P2 Admin)
+Minggu 6     ████████ Sprint 4 (P2 Admin)             ✅
 Minggu 7     ██████ Sprint 5 (P2 Observability)
 Minggu 8+    ████████████ Sprint 6 (P3 Architecture) — opsional
 ```
